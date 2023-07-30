@@ -1,0 +1,49 @@
+name: Code Coverage
+
+on:
+  push:
+    branches:
+      - "main"
+      - "[0-9]+.[0-9]+"
+  pull_request:
+    branches:
+      - "main"
+      - "[0-9]+.[0-9]+"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+        cache: "pip"
+    - name: Installing requirements
+      run: pip install ".[dev]"
+    - name: Download example database
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        name: hypothesis-example-db
+        path: .hypothesis/examples
+        if_no_artifact_found: warn
+        workflow_conclusion: completed
+    - name: Generate Coverage Report
+      run: |
+        python -m coverage run --source=plugin/ -m pytest
+        python -m coverage xml
+    - name: Upload Coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: coverage.xml
+    - name: Upload example database
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: hypothesis-example-db
+        path: .hypothesis/examples

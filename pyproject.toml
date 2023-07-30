@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyplugin"
+version = "0.1.0"
+authors = [
+  { name="Evyn Machi", email="evyn.machi@gmail.com" },
+]
+description = ""
+readme = "README.md"
+license = {text = "LICENSE"}
+requires-python = ">= 3.9"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest >= 7.3.1",
+  "hypothesis >= 6.82.0",
+  "black >= 23.3.0",
+  "coverage >= 7.2.7",
+  "pylint >= 2.17.5",
+  "Sphinx >=1.6,<7",
+  "sphinx-rtd-theme >= 1.2.2"
+]
+build = [
+  "build >= 0.10.0",
+  "twine >= 4.0.2"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/pyplugin/pyplugin"
