@@ -6,8 +6,8 @@ from collections import OrderedDict, namedtuple
 import functools
 import typing
 
-from pyplugin.exceptions import *
-from pyplugin.utils import import_helper
+from plugin.exceptions import *
+from plugin.utils import import_helper
 
 
 empty = object()

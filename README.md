@@ -27,4 +27,13 @@ If you want to be added as a contributor and check out the
 [Developer's Guide](https://github.com/pyplugin/pyplugin/wiki/Developer's-Guide).
 
 ## Install
-The package is currently **NOT** available on pypi as of 30 July 2023.
+The package is available on pypi and can be installed with
+
+```bash
+pip install plugin
+```
+
+For the latest experimental version
+```bash
+pip install plugin --pre
+```

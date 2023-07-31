@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath("../"))
 
 # -- Project information -----------------------------------------------------
 
-project = "pyplugin"
+project = "plugin"
 copyright = "2023, Evyn Machi"
 author = "Evyn Machi"
 

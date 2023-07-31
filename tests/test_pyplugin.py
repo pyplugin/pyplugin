@@ -1,5 +1,5 @@
 """ Test module """
-from pyplugin.base import PluginManager
+from plugin.base import PluginManager
 
 
 def test():

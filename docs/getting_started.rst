@@ -7,11 +7,11 @@ Install
 --------
 The package is available on pypi and can be installed with::
 
-    pip install pyplugin
+    pip install plugin
 
 For the latest experimental version::
 
-    pip install pyplugin --pre
+    pip install plugin --pre
 
 Quickstart
 -----------------
