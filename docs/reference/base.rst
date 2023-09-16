@@ -1,7 +1,7 @@
-plugin.base
+pyplugin.base
 ==========================
 
-.. automodule:: plugin.base
+.. automodule:: pyplugin.base
    :members:
    :undoc-members:
    :show-inheritance:

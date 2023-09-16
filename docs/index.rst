@@ -8,6 +8,9 @@ pyplugin |release|
    reference
    changelog
 
+Pyplugin is a plugin framework library, supporting declarative-style plugin writing, allowing modular, swappable
+functionality in any codebase.
+
 See the source code for this version :source_code:`on github <.>`
 
 Getting Started
@@ -27,6 +30,3 @@ What's New in |release|
 
 Features
 ^^^^^^^^^
-
-    - ABC
-    - ABC

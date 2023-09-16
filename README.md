@@ -6,6 +6,12 @@
 ![Pylint Status](https://github.com/pyplugin/pyplugin/actions/workflows/pylint.yml/badge.svg)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
+Pyplugin is a plugin framework library, supporting declarative-style plugin writing, allowing modular, swappable
+functionality in any codebase. 
+
+See
+[Getting Started](https://pyplugin.readthedocs.io/en/latest/getting_started.html) for more.
+
 
 | Version Name | Latest Tag | Release Notes | Patch Notes | Documentation | Release Date | End Support Date |
 | ------------ | ---------- | ------------- | ----------- | ------------- | ------------ | ---------------- |
@@ -16,8 +22,6 @@
 
 ### Features
 
-- ABC
-
 ## Contributing
 Want a new feature, found a bug, or have questions? Feel free to add to our issue board on Github:
 [Open Issues](https://github.com/pyplugin/pyplugin/issues>)
@@ -25,6 +29,18 @@ Want a new feature, found a bug, or have questions? Feel free to add to our issu
 We welcome any developer who enjoys the package enough to contribute. 
 If you want to be added as a contributor and check out the 
 [Developer's Guide](https://github.com/pyplugin/pyplugin/wiki/Developer's-Guide).
+
+## Introduction
+Plugins are arbitrary callables. They can declare other plugins as requirements while operating under
+certain guarantees:
+
+- A plugin can be loaded (i.e. called) exactly once until it is unloaded.
+- A plugin's dependencies will be loaded before.
+- A plugin's loaded dependents will be reloaded after.
+
+This paradigm naturally puts an emphasis on the structure of applications and less on its orchestration.
+This allows consumers of applications to easily swap or add plugins while guaranteeing conformity to API
+contracts.
 
 ## Install
 The package is available on pypi and can be installed with

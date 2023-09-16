@@ -6,4 +6,8 @@ API Reference
 .. toctree::
    :maxdepth: 3
 
-   reference/plugin
+   reference/base
+   reference/decorators
+   reference/exceptions
+   reference/settings
+   reference/utils
