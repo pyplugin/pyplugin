@@ -31,7 +31,7 @@ jobs:
         python -m pylint --fail-under=9.5 plugin/ tests/
     - name: Analysing the code with black
       run: |
-        python -m black --check plugin/ tests/
+        python -m black --check pyplugin/ tests/
     - name: Ensuring docs can compile
       run: |
         python -m sphinx -T -E -b html -d _build/doctrees -D language=en docs docs/out/html
