@@ -108,7 +108,7 @@ class Plugin:
 
         self.name = get_plugin_name(plugin, name=name)
         self._locked = False
-        self._kwargs = {"bind": bind, **settings.to_dict()}
+        self._kwargs = {"bind": bind, **kwargs}
 
         self.load_args = None
         self.load_kwargs = None
