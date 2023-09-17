@@ -5,6 +5,7 @@ pyplugin |release|
    :hidden:
 
    getting_started
+   user_guide
    reference
    changelog
 

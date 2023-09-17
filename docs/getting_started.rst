@@ -47,7 +47,7 @@ You can load the plugin by simply calling it::
 
     client = db_client()
 
-or by explicitly calling the :meth:`load` method (useful for passing additional load options)::
+or by explicitly calling the :meth:`~pyplugin.base.Plugin.load` method (useful for passing additional load options)::
 
     client = db_client.load()
 
@@ -63,7 +63,7 @@ We can define an unload operation upon definition::
     def db_client(uri):
         return db_library.connect(uri)
 
-Now if we call the :meth:`unload` method, the :code:`unload_callable` will be called.
+Now if we call the :meth:`~pyplugin.base.Plugin.unload` method, the :code:`unload_callable` will be called.
 
 Loading the Plugin Again
 #########################

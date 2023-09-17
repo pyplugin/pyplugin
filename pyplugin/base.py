@@ -252,7 +252,7 @@ class Plugin:
 
                 - "keep_existing": Ignore the load request
                 - "replace": First :meth:`unload` before attempting to load
-                - "force": Like "replace" except will apply if :attr:`load_args` and :attr:`load_kwargs` match.
+                - "force": Like "replace" but also will apply if :attr:`load_args` and :attr:`load_kwargs` match.
                 - "error": raises PluginLoadError
 
                 (default: "replace")
@@ -261,7 +261,6 @@ class Plugin:
         Raises:
             PluginLockedError: If this Plugin is locked
             PluginPartiallyLoadedError: If this method was called while inside the underlying callable.
-            PluginLoadError: If there was an error in loading the requirements or the dependents
             PluginTypeError: If :attr:`enforce_type` is True, and the returned value from the underlying callable
                 does not match :attr:`type`.
         """
@@ -334,13 +333,13 @@ class Plugin:
             conflict_strategy ("ignore", "error"): How to handle the case this Plugin is already unloaded:
 
                 - "ignore": Ignore the unload request
-                - "error": raises PluginLoadError
+                - "error": raises PluginAlreadyUnloadedError
 
                 (default: "ignore")
         Raises:
             PluginLockedError: If this Plugin is locked
             PluginPartiallyLoadedError: If this method was called while inside the underlying callable.
-            PluginLoadError: If there was an error in unloading the dependents
+            PluginAlreadyUnloadedError: If conflict_strategy is "error" and this plugin is already unloaded.
         """
         # check cyclic load
         if self.__partially_loaded:
