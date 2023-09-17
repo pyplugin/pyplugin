@@ -1,3 +1,6 @@
+# pylint: disable=empty-docstring
+
+
 class PluginError(Exception):
     """ """
 

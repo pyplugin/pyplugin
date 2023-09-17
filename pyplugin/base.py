@@ -4,6 +4,7 @@ import contextlib
 import inspect
 import functools
 import typing
+import copy
 
 from pyplugin.exceptions import *
 from pyplugin.utils import (
@@ -18,9 +19,7 @@ from pyplugin.settings import Settings
 _DELIMITER = "."
 
 
-def get_plugin_name(
-    plugin: typing.Union[Plugin, str, typing.Callable], name: str = empty
-):
+def get_plugin_name(plugin: typing.Union[Plugin, str, typing.Callable], name: str = empty):
     """
     Finds a name for the given plugin-like object. For a function this is a fully qualified
     package-module dot-delimited name. Otherwise, takes the override `name` argument, and finally
@@ -105,42 +104,33 @@ class Plugin:
         is_class_type: bool = False,
         **kwargs,
     ):
-        settings = Settings(
-            **{key: value for key, value in kwargs.items() if key in Settings._SETTINGS}
-        )
+        settings = Settings(**{key: value for key, value in kwargs.items() if key in Settings._SETTINGS})
 
         self.name = get_plugin_name(plugin, name=name)
         self._locked = False
-        self._kwargs = dict(
-            bind=bind,
-            **settings.to_dict(),
-        )
+        self._kwargs = {"bind": bind, **settings.to_dict()}
 
         self.load_args = None
         self.load_kwargs = None
 
         if isinstance(plugin, Plugin):
             plugin = plugin.__original_callable
-            unload_callable = (
-                unload_callable
-                if unload_callable != void_args
-                else plugin.__original_unload_callable
-            )
+            unload_callable = unload_callable if unload_callable != void_args else plugin.__original_unload_callable
         self.__original_callable = self._load_callable = plugin
         self.__original_unload_callable = self._unload_callable = unload_callable
 
         self.__partially_loaded = False
         self.instance = empty
 
-        self.infer_type = settings.infer_type
+        self.infer_type = settings["infer_type"]
         self.type = kwargs.get("type", None)
         self.is_class_type = is_class_type
-        self.enforce_type = settings.enforce_type
+        self.enforce_type = settings["enforce_type"]
 
         while isinstance(self._load_callable, str):
             self._handle_import_form(
                 self._load_callable,
-                eager_find=settings.eager_find,
+                eager_find=settings["eager_find"],
             )
 
         if not self.type and self.infer_type:
@@ -239,16 +229,14 @@ class Plugin:
             Plugin: An non-loaded copy of this plugin.
         """
         dest = dest if dest else self.name
-        other = self.__copy__()
+        other = copy.copy(self)
         other.name = dest
         return other
 
     def load(
         self,
         *args,
-        conflict_strategy: typing.Literal[
-            "keep_existing", "replace", "force", "error"
-        ] = "replace",
+        conflict_strategy: typing.Literal["keep_existing", "replace", "force", "error"] = "replace",
         default_previous_args: bool = True,
         **kwargs,
     ):
@@ -323,8 +311,7 @@ class Plugin:
                 comparator = isinstance
             if not comparator(instance, self.type):
                 raise PluginTypeError(
-                    f"{self.get_full_name()}: Mismatched type, "
-                    f"expected {self.type} but got {type(instance)}"
+                    f"{self.get_full_name()}: Mismatched type, " f"expected {self.type} but got {type(instance)}"
                 )
 
         if not self.type and self.infer_type:
@@ -411,6 +398,8 @@ class Plugin:
 
         if not isinstance(plugin.__original_callable, str):
             self.type = infer_return_type(plugin.__original_callable)
+
+        return None
 
     def _set_type_from_instance(self, instance):
         self.type = type(instance)

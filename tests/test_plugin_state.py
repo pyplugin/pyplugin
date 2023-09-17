@@ -42,9 +42,7 @@ class PluginStateMachine(RuleBasedStateMachine):
     @rule(
         target=plugins,
         plugin=plugins,
-        conflict_strategy=st.one_of(
-            st.just("keep_existing"), st.just("replace"), st.just("force")
-        ),
+        conflict_strategy=st.one_of(st.just("keep_existing"), st.just("replace"), st.just("force")),
     )
     def load_plugin(self, plugin, conflict_strategy):
         plugin.load(conflict_strategy=conflict_strategy, **plugin.load_kwargs)

@@ -67,7 +67,7 @@ def import_helper(name: str, ignore_missing: bool = True):
             setattr(module, module_name, submodule)
 
     try:
-        return module.__getattribute__(name)
+        return getattr(module, name)
     except AttributeError:
         if not ignore_missing:
             raise

@@ -28,7 +28,7 @@ jobs:
       run: pip install ".[dev]"
     - name: Analysing the code with pylint
       run: |
-        python -m pylint --fail-under 0.95 plugin/ tests/
+        python -m pylint --fail-under=9.5 plugin/ tests/
     - name: Analysing the code with black
       run: |
         python -m black --check plugin/ tests/

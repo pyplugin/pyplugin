@@ -14,18 +14,25 @@ _TYPE_MAP = {
 class Settings:
     _PREFIX = "PYPLUGIN"
     _SETTINGS = {
-        "eager_find": _setting(
-            type=bool, envvar=f"{_PREFIX}_EAGER_FIND", default=False
-        ),
+        "eager_find": _setting(type=bool, envvar=f"{_PREFIX}_EAGER_FIND", default=False),
         "infer_type": _setting(type=bool, envvar=f"{_PREFIX}_INFER_TYPE", default=True),
-        "enforce_type": _setting(
-            type=bool, envvar=f"{_PREFIX}_ENFORCE_TYPE", default=False
-        ),
+        "enforce_type": _setting(type=bool, envvar=f"{_PREFIX}_ENFORCE_TYPE", default=False),
     }
     __slots__ = tuple(_SETTINGS.keys())
 
     def __init__(self, **kwargs):
-        for key, value in kwargs.items():
+        self.merge(kwargs)
+
+    def __getitem__(self, key):
+        if key not in self._SETTINGS:
+            raise KeyError(key)
+        return getattr(self, key)
+
+    def to_dict(self):
+        return {key: getattr(self, key) for key in self._SETTINGS}
+
+    def merge(self, data):
+        for key, value in data.items():
             if key not in self._SETTINGS:
                 raise KeyError(f"{key} is not a valid setting.")
 
@@ -33,7 +40,4 @@ class Settings:
             value = os.getenv(envvar, default)
             if isinstance(value, str):
                 value = _TYPE_MAP[type_](value)
-            setattr(self, key, kwargs.get(key, value))
-
-    def to_dict(self):
-        return {key: getattr(self, key) for key in self._SETTINGS}
+            setattr(self, key, data.get(key, value))
