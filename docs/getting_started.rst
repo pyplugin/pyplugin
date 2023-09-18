@@ -47,7 +47,7 @@ You can load the plugin by simply calling it::
 
     client = db_client()
 
-or by explicitly calling the :meth:`~pyplugin.base.Plugin.load` method (useful for passing additional load options)::
+or by explicitly calling the :meth:`~pyplugin.base.Plugin.load`::
 
     client = db_client.load()
 
