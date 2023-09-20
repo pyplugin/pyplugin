@@ -18,13 +18,15 @@ contracts.
 
 Install
 --------
-The package is available on pypi and can be installed with::
+The package is currently **not available** on pypi pending a `PEP 541 request <https://github.com/pypi/support/issues/3063>`_
 
-    pip install plugin
+The package can be configured as a Github dependency in a :code:`requirements.txt` ::
 
-For the latest experimental version::
+    pyplugin @ git+https://github.com/pyplugin/pyplugin@main
 
-    pip install plugin --pre
+or to pin to a tag ::
+
+    pyplugin @ git+https://github.com/pyplugin/pyplugin@v0.1
 
 Quickstart
 -----------------
