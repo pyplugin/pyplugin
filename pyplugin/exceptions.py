@@ -31,3 +31,7 @@ class PluginAlreadyUnloadedError(PluginUnloadError):
 
 class PluginRegisterError(PluginError):
     """ """
+
+
+class PluginNotFound(PluginRegisterError):
+    """ """

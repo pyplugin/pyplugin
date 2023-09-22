@@ -62,7 +62,7 @@ def register(
             raise PluginRegisterError(f"Plugin with name {name} already registered.")
 
     if name != plugin.get_full_name():
-        plugin.name = name
+        plugin.full_name = name
 
     _PLUGIN_REGISTRY[name] = plugin
 
@@ -70,13 +70,13 @@ def register(
 
 
 def unregister(
-    name: str,
+    plugin: typing.Union[str, Plugin],
     conflict_strategy: typing.Literal["ignore", "error"] = "error",
 ):
     """
 
     Arguments:
-        name (str): The name to unregister
+        plugin (Plugin | str): The plugin to unregister
         conflict_strategy ("ignore" | "error"): Handle the case that the name is not registered.
 
             - "ignore": Ignore the incoming unregister request
@@ -86,6 +86,7 @@ def unregister(
     Returns:
         Plugin | None: The unregistered plugin or None
     """
+    name = plugin if isinstance(plugin, str) else plugin.get_full_name()
 
     # TODO: evyn.machi: perhaps in the future we can have an unregister hook
     if name not in _PLUGIN_REGISTRY:
@@ -98,6 +99,32 @@ def unregister(
         raise PluginRegisterError(f"Cannot unregister already loaded plugin {name}.")
 
     return _PLUGIN_REGISTRY.pop(name)
+
+
+def get_plugin(name: str):
+    if name not in _PLUGIN_REGISTRY:
+        raise PluginNotFound(name)
+    return _PLUGIN_REGISTRY[name]
+
+
+def replace(
+    old: typing.Union[Plugin, str],
+    new: typing.Union[Plugin, str],
+    **load_kwargs,
+):
+    old_plugin = old if isinstance(old, Plugin) else get_plugin(old)
+    new_plugin = old if isinstance(new, Plugin) else get_plugin(old)
+
+    loaded = old_plugin.is_loaded()
+
+    old_plugin.unload(conflict_strategy="ignore")
+
+    new_plugin = register(new_plugin, name=old_plugin.full_name, conflict_strategy="replace")
+
+    if loaded:
+        new_plugin.load(**load_kwargs)
+
+    return new_plugin
 
 
 def get_plugin_name(plugin: typing.Union[Plugin, str, typing.Callable], name: str = empty):
@@ -188,8 +215,9 @@ class Plugin:
     ):
         settings = Settings(**{key: value for key, value in kwargs.items() if key in Settings._SETTINGS})
 
+        self._full_name = None
+        self._name = None
         self.full_name = get_plugin_name(plugin, name=name)
-        self.name = self.full_name.split(_DELIMITER)[-1]
 
         self._locked = False
         self._kwargs = {"bind": bind, **kwargs}
@@ -275,12 +303,29 @@ class Plugin:
         """Alias for :meth:`load`"""
         return self.load(*args, **kwargs)
 
+    def _set_full_name(self, value):
+        self._full_name = value
+        self._name = self._full_name.split(_DELIMITER)[-1]
+
     def get_full_name(self):
         """
         Returns:
             str: The fully-qualified name
         """
-        return self.full_name
+        return self._full_name
+
+    full_name = property(get_full_name, _set_full_name)
+
+    def _set_name(self, value):
+        self._name = value
+
+        parts = self._full_name.split(_DELIMITER)
+        self._full_name = _DELIMITER.join((*parts[:-1], self._name))
+
+    def get_name(self):
+        return self._name
+
+    name = property(get_name, _set_name)
 
     def lock(self):
         """
