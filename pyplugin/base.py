@@ -23,14 +23,13 @@ _PLUGIN_REGISTRY: dict[str, Plugin] = {}
 
 
 def register(
-    plugin: Plugin,
+    plugin: PluginLike,
     name: str = None,
     conflict_strategy: typing.Literal["replace", "keep_existing", "error"] = "error",
 ):
     """
-
     Arguments:
-        plugin (Plugin): The plugin to register
+        plugin (PluginLike): The plugin to register
         name (str): The name to register the plugin under if not the plugin's full name (default: the plugin's
             full name)
         conflict_strategy ("replace" | "keep_existing" | "error"): Handle the case that a different plugin is already
@@ -45,8 +44,10 @@ def register(
     Returns:
         Plugin: The newly registered plugin or the existing plugin if conflict_strategy is "keep_existing"
     """
-
     # TODO: evyn.machi: perhaps in the future we can have a register hook
+    if not isinstance(plugin, Plugin):
+        plugin = Plugin(plugin, anonymous=True)
+
     if not name:
         name = plugin.get_full_name()
 
@@ -107,14 +108,14 @@ def get_plugin(name: str):
     return _PLUGIN_REGISTRY[name]
 
 
-def get_plugin_name(plugin: typing.Union[Plugin, str, typing.Callable], name: str = empty):
+def get_plugin_name(plugin: PluginLike, name: str = empty):
     """
     Finds a name for the given plugin-like object. For a function this is a fully qualified
     package-module dot-delimited name. Otherwise, takes the override `name` argument, and finally
     resorts to the __name__ attribute if defined.
 
     Arguments:
-        plugin (Plugin | str | None): The plugin-like object to find a name for.
+        plugin (PluginLike): The plugin-like object to find a name for.
         name (str | :attr:`plugin.utils.empty`): The override name to take if given.
     Returns:
         str: The resolved name of the plugin
@@ -155,7 +156,7 @@ class Plugin:
             (default: False)
 
     Arguments:
-        plugin (Plugin | str | Callable): The plugin argument can take one of three forms.
+        plugin (PluginLike): The plugin argument can take one of three forms.
 
             - Callable: This is the base form where the Plugin class will "wrap" this underlying callable
               and call this function upon :meth:`load`.
@@ -187,7 +188,7 @@ class Plugin:
 
     def __init__(
         self,
-        plugin: typing.Union[Plugin, str, typing.Callable],
+        plugin: PluginLike,
         name: str = empty,
         unload_callable: typing.Callable = void_args,
         bind: bool = False,
@@ -530,3 +531,9 @@ class Plugin:
         yield
 
         self.__partially_loaded = False
+
+
+PluginLike = typing.TypeVar("PluginLike", bound=typing.Union[Plugin, str, typing.Callable])
+"""
+See :class:`Plugin` initialization argument :code:`plugin` for more information.
+"""
