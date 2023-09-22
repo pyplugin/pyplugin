@@ -8,7 +8,7 @@ from hypothesis.stateful import (
 )
 
 from pyplugin import Plugin
-from pyplugin.base import empty, get_plugin_name
+from pyplugin.base import empty, get_plugin_name, _PLUGIN_REGISTRY
 
 from tests.strategies import function_and_call
 
@@ -23,15 +23,13 @@ class PluginStateMachine(RuleBasedStateMachine):
     @rule(
         target=plugins,
         plugin=function_and_call(),
-        name=st.one_of(st.just(empty), st.text()),
+        name=st.text(),
     )
     def add_plugin(self, plugin, name):
         plugin, load_kwargs = plugin
 
-        if name is empty:
-            name = get_plugin_name(plugin)
-
         assume(name != "")
+        assume(name not in _PLUGIN_REGISTRY)
 
         plugin = Plugin(plugin, name=name)
 
@@ -63,6 +61,9 @@ class PluginStateMachine(RuleBasedStateMachine):
         assert not plugin.is_loaded()
 
         return multiple()
+
+    def teardown(self):
+        _PLUGIN_REGISTRY.clear()
 
 
 TestPluginStateMachine = PluginStateMachine.TestCase

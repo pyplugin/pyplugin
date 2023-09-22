@@ -19,6 +19,87 @@ from pyplugin.settings import Settings
 _DELIMITER = "."
 
 
+_PLUGIN_REGISTRY: dict[str, Plugin] = {}
+
+
+def register(
+    plugin: Plugin,
+    name: str = None,
+    conflict_strategy: typing.Literal["replace", "keep_existing", "error"] = "error",
+):
+    """
+
+    Arguments:
+        plugin (Plugin): The plugin to register
+        name (str): The name to register the plugin under if not the plugin's full name (default: the plugin's
+            full name)
+        conflict_strategy ("replace" | "keep_existing" | "error"): Handle the case that a different plugin is already
+            registered under the same name:
+
+                - "keep_existing": Ignore the incoming register request
+                - "replace": Unregister the existing plugin first (if it's not loaded).
+                - "error": raises PluginRegisterError
+    Raises:
+        PluginRegisterError: If there was an error in registering the plugin (e.g. trying to replace an already loaded
+            plugin)
+    Returns:
+        Plugin: The newly registered plugin or the existing plugin if conflict_strategy is "keep_existing"
+    """
+
+    # TODO: evyn.machi: perhaps in the future we can have a register hook
+    if not name:
+        name = plugin.get_full_name()
+
+    if name in _PLUGIN_REGISTRY:
+        if _PLUGIN_REGISTRY[name] == plugin:
+            return _PLUGIN_REGISTRY[name]
+
+        if conflict_strategy == "keep_existing":
+            return _PLUGIN_REGISTRY[name]
+        elif conflict_strategy == "replace":
+            unregister(name, conflict_strategy="error")
+        elif conflict_strategy == "error":
+            raise PluginRegisterError(f"Plugin with name {name} already registered.")
+
+    if name != plugin.get_full_name():
+        plugin.name = name
+
+    _PLUGIN_REGISTRY[name] = plugin
+
+    return _PLUGIN_REGISTRY[name]
+
+
+def unregister(
+    name: str,
+    conflict_strategy: typing.Literal["ignore", "error"] = "error",
+):
+    """
+
+    Arguments:
+        name (str): The name to unregister
+        conflict_strategy ("ignore" | "error"): Handle the case that the name is not registered.
+
+            - "ignore": Ignore the incoming unregister request
+            - "error": raises PluginRegisterError
+    Raises:
+        PluginRegisterError: If there was an error in unregistering the plugin
+    Returns:
+        Plugin | None: The unregistered plugin or None
+    """
+
+    # TODO: evyn.machi: perhaps in the future we can have an unregister hook
+    if name not in _PLUGIN_REGISTRY:
+        if conflict_strategy == "ignore":
+            return
+        elif conflict_strategy == "error":
+            raise PluginRegisterError(f"Plugin {name} is not registered")
+
+    if _PLUGIN_REGISTRY[name].is_loaded():
+        raise PluginRegisterError(f"Cannot unregister already loaded plugin {name}.")
+
+    return _PLUGIN_REGISTRY.pop(name)
+
+
 def get_plugin_name(plugin: typing.Union[Plugin, str, typing.Callable], name: str = empty):
     """
     Finds a name for the given plugin-like object. For a function this is a fully qualified
@@ -51,7 +132,8 @@ class Plugin:
     """
 
     Attributes:
-        name (str): The name of the plugin
+        name (str): The (relative) name of the plugin
+        full_name (str): The fully qualified dot-delimited name of the plugin
 
         load_args (tuple | None): The most-recent positional arguments passed to the plugin when loading
         load_kwargs (dict | None): The most-recent keyword arguments passed to the plugin when loading
@@ -84,6 +166,7 @@ class Plugin:
             (default: False)
         eager_find (bool): If True, a plugin given in import form will be greedily found at initialization time.
             If False, the find happens at load time. (default: False)
+        anonymous (bool): If True, will not globally register the plugin under its :attr:`full_name` (default: False).
 
         type (type | None): The return type of the underlying callable. (default: None)
         infer_type (bool): If type is not given upon initialization, will attempt to infer the type from
@@ -101,12 +184,13 @@ class Plugin:
         name: str = empty,
         unload_callable: typing.Callable = void_args,
         bind: bool = False,
-        is_class_type: bool = False,
         **kwargs,
     ):
         settings = Settings(**{key: value for key, value in kwargs.items() if key in Settings._SETTINGS})
 
-        self.name = get_plugin_name(plugin, name=name)
+        self.full_name = get_plugin_name(plugin, name=name)
+        self.name = self.full_name.split(_DELIMITER)[-1]
+
         self._locked = False
         self._kwargs = {"bind": bind, **kwargs}
 
@@ -124,7 +208,7 @@ class Plugin:
 
         self.infer_type = settings["infer_type"]
         self.type = kwargs.get("type", None)
-        self.is_class_type = is_class_type
+        self.is_class_type = kwargs.get("is_class_type", False)
         self.enforce_type = settings["enforce_type"]
 
         while isinstance(self._load_callable, str):
@@ -139,6 +223,9 @@ class Plugin:
         if bind:
             self._load_callable = self._load_callable.__get__(self, type(self))
             self._unload_callable = self._unload_callable.__get__(self, type(self))
+
+        if not kwargs.get("anonymous", False):
+            register(self, name=self.full_name)
 
     def __repr__(self):
         attrs = ", ".join(
@@ -169,15 +256,17 @@ class Plugin:
         )
 
     def __copy__(self):
+        kwargs = self._kwargs.copy()
+        kwargs.update(
+            anonymous=True,
+        )
+
         ret = Plugin(
             self.__original_callable,
             unload_callable=self.__original_unload_callable,
             name=self.name,
             type=self.type,
-            infer_type=self.infer_type,
-            enforce_type=self.enforce_type,
-            is_class_type=self.is_class_type,
-            **self._kwargs,
+            **kwargs,
         )
         ret._locked = self._locked
         return ret
@@ -191,7 +280,7 @@ class Plugin:
         Returns:
             str: The fully-qualified name
         """
-        return self.name
+        return self.full_name
 
     def lock(self):
         """
@@ -226,7 +315,7 @@ class Plugin:
         Arguments:
             dest (str | None): the new name to give the copy, defaults to the current name
         Returns:
-            Plugin: An non-loaded copy of this plugin.
+            Plugin: An anonymous, non-loaded copy of this plugin.
         """
         dest = dest if dest else self.name
         other = copy.copy(self)
