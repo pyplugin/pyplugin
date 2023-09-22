@@ -107,26 +107,6 @@ def get_plugin(name: str):
     return _PLUGIN_REGISTRY[name]
 
 
-def replace(
-    old: typing.Union[Plugin, str],
-    new: typing.Union[Plugin, str],
-    **load_kwargs,
-):
-    old_plugin = old if isinstance(old, Plugin) else get_plugin(old)
-    new_plugin = old if isinstance(new, Plugin) else get_plugin(old)
-
-    loaded = old_plugin.is_loaded()
-
-    old_plugin.unload(conflict_strategy="ignore")
-
-    new_plugin = register(new_plugin, name=old_plugin.full_name, conflict_strategy="replace")
-
-    if loaded:
-        new_plugin.load(**load_kwargs)
-
-    return new_plugin
-
-
 def get_plugin_name(plugin: typing.Union[Plugin, str, typing.Callable], name: str = empty):
     """
     Finds a name for the given plugin-like object. For a function this is a fully qualified
