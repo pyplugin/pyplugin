@@ -39,6 +39,26 @@ class PluginStateMachine(RuleBasedStateMachine):
 
     @rule(
         target=plugins,
+        plugin1=plugins,
+        plugin2=plugins,
+        use_name=st.booleans(),
+    )
+    def add_requirement(self, plugin1, plugin2, use_name):
+        assume(plugin1 != plugin2)
+        assume(
+            not any(
+                requirement.plugin in (plugin2, plugin2.get_full_name())
+                for requirement in plugin1.requirements.values()
+            )
+        )
+
+        requirement = plugin2 if not use_name else plugin2.get_full_name()
+        plugin1.add_requirement(requirement)
+
+        return multiple()
+
+    @rule(
+        target=plugins,
         plugin=plugins,
         conflict_strategy=st.one_of(st.just("keep_existing"), st.just("replace"), st.just("force")),
     )
