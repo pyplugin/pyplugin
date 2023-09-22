@@ -18,6 +18,9 @@ from pyplugin.settings import Settings
 
 _DELIMITER = "."
 
+# ------------------------------------------
+# Plugin Registry
+# ------------------------------------------
 
 _PLUGIN_REGISTRY: dict[str, Plugin] = {}
 
@@ -116,6 +119,11 @@ def get_plugin(name: str):
     return _PLUGIN_REGISTRY[name]
 
 
+# ------------------------------------------
+# Plugin Misc Utils
+# ------------------------------------------
+
+
 def get_plugin_name(plugin: PluginLike, name: str = empty):
     """
     Finds a name for the given plugin-like object. For a function this is a fully qualified
@@ -142,6 +150,11 @@ def get_plugin_name(plugin: PluginLike, name: str = empty):
     if hasattr(plugin, "__name__"):
         return getattr(plugin, "__name__")
     raise ValueError(f"Cannot resolve name for {plugin}")
+
+
+# ------------------------------------------
+# Plugin Requirements / Dependencies
+# ------------------------------------------
 
 
 class Plugin:
