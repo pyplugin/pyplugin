@@ -103,8 +103,16 @@ def unregister(
 
 
 def get_plugin(name: str):
+    """
+    Arguments:
+        name (str): The name of the plugin
+    Returns:
+        Plugin: The plugin registered with the given name
+    Raises:
+        PluginNotFoundError: If the plugin with the given name is not found
+    """
     if name not in _PLUGIN_REGISTRY:
-        raise PluginNotFound(name)
+        raise PluginNotFoundError(name)
     return _PLUGIN_REGISTRY[name]
 
 
