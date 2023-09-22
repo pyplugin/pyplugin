@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import inspect
 import functools
 import typing
@@ -105,7 +106,7 @@ def unregister(
     return _PLUGIN_REGISTRY.pop(name)
 
 
-def get_plugin(name: str):
+def get_registered_plugin(name: str):
     """
     Arguments:
         name (str): The name of the plugin
@@ -152,9 +153,40 @@ def get_plugin_name(plugin: PluginLike, name: str = empty):
     raise ValueError(f"Cannot resolve name for {plugin}")
 
 
+def lookup_plugin(name: str):
+    """
+    Arguments:
+        name (str): The plugin name to lookup
+    Returns:
+        Plugin: The plugin with the registered name, falling back to an import lookup that wraps
+    """
+    try:
+        plugin = get_registered_plugin(name)
+    except PluginNotFoundError:
+        plugin = Plugin(import_helper(name))
+    return plugin
+
+
 # ------------------------------------------
 # Plugin Requirements / Dependencies
 # ------------------------------------------
+@dataclasses.dataclass
+class PluginRequirement:
+    """
+
+    Attributes:
+        plugin (Plugin, str): The plugin dependency, if this is a string, will perform a :func:`lookup_plugin` before
+            loading.
+        dest (str): The keyword name to call :meth:`Plugin.load` with.
+
+    """
+
+    plugin: typing.Union[Plugin, str]
+    dest: str
+
+    @classmethod
+    def from_tuple(cls, value):
+        return PluginRequirement(*value)
 
 
 class Plugin:
@@ -176,6 +208,9 @@ class Plugin:
         enforce_type (bool): If True, will error if any load attempt that does not match :attr:`type`.
             (default: False)
 
+        requirements (dict[str, PluginRequirement]): The dependencies this plugin requires before loading.
+            Requirements will be passed via keyword argument using the :attr:`PluginRequirement.dest` name.
+
     Arguments:
         plugin (PluginLike): The plugin argument can take one of three forms.
 
@@ -184,7 +219,8 @@ class Plugin:
             - Plugin: This will wrap the underlying callable of the given plugin.
             - str: This is the import form which will either find upon loading (default), or
               find upon initialization (determined by :code:`greedy_import`). That name is expected to be
-              in one of the other forms and is found using importlib.
+              in one of the other forms and is first attempted to be found in the plugin registry or falls back to
+              using importlib.
 
 
         name (str | empty): The name to assign the plugin. If not provided, determined by :func:`get_plugin_name`
@@ -205,6 +241,9 @@ class Plugin:
         is_class_type (bool): If True, this indicates the return-value is a subclass of :attr:`type`.
             (default: False)
 
+        requires (Iterable[PluginLike | PluginRequirement | tuple[PluginLike, str]]): Any plugin dependencies to load
+            beforehand.
+
     """
 
     def __init__(
@@ -213,6 +252,7 @@ class Plugin:
         name: str = empty,
         unload_callable: typing.Callable = void_args,
         bind: bool = False,
+        requires: typing.Iterable[typing.Union[PluginLike, PluginRequirement, tuple[PluginLike, str]]] = (),
         **kwargs,
     ):
         settings = Settings(**{key: value for key, value in kwargs.items() if key in Settings._SETTINGS})
@@ -254,8 +294,57 @@ class Plugin:
             self._load_callable = self._load_callable.__get__(self, type(self))
             self._unload_callable = self._unload_callable.__get__(self, type(self))
 
+        self.requirements = {}
+        for requirement in requires:
+            self.add_requirement(requirement)
+
         if not kwargs.get("anonymous", False):
             register(self, name=self.full_name)
+
+    def add_requirement(
+        self,
+        requirement: typing.Union[PluginLike, PluginRequirement, tuple[PluginLike, str]],
+        conflict_strategy: typing.Literal["replace", "keep_existing", "error"] = "error",
+    ):
+        """
+
+        Arguments:
+            requirement (PluginLike | PluginRequirement | tuple[PluginLike, str]): The plugin that this plugin
+                depends on and that will be passed upon :meth:`load`.
+            conflict_strategy ("replace" | "keep_existing" | "error"): Handles the case where
+                :attr:`PluginRequirement.dest` conflicts with a current requirement:
+
+                    - "replace": Remove the existing requirement
+                    - "keep_existing": Keep the existing requirement
+                    - "error": Raise PluginRequirementError
+        Returns:
+            PluginRequirement: The formatted PluginRequirement
+        Raises:
+            PluginRequirementError: If there was an issue registering the requirement
+        """
+        if isinstance(requirement, PluginRequirement):
+            pass
+        elif isinstance(requirement, tuple):
+            requirement = PluginRequirement.from_tuple(requirement)
+        elif isinstance(requirement, str):
+            requirement = PluginRequirement(requirement, dest=requirement.split(_DELIMITER)[-1])
+        elif isinstance(requirement, Plugin):
+            requirement = PluginRequirement(requirement, dest=requirement.name)
+        else:
+            plugin = Plugin(requirement)
+            requirement = PluginRequirement(plugin, dest=plugin.name)
+
+        if requirement.dest in self.requirements and requirement != self.requirements[requirement.dest]:
+            if conflict_strategy == "replace":
+                del self.requirements[requirement.dest]
+            elif conflict_strategy == "keep_existing":
+                return self.requirements[requirement.dest]
+            elif conflict_strategy == "error":
+                raise PluginRequirementError(f"Plugin requirement with dest {requirement.dest} already registered")
+
+        self.requirements[requirement.dest] = requirement
+
+        return self.requirements[requirement.dest]
 
     def __repr__(self):
         attrs = ", ".join(
@@ -296,6 +385,7 @@ class Plugin:
             unload_callable=self.__original_unload_callable,
             name=self.name,
             type=self.type,
+            requires=self.requirements.copy().values(),
             **kwargs,
         )
         ret._locked = self._locked
@@ -505,7 +595,11 @@ class Plugin:
         eager_find: bool = False,
     ):
         if eager_find:
-            maybe_plugin = import_helper(import_name)
+            try:
+                maybe_plugin = get_registered_plugin(import_name)
+            except PluginNotFoundError:
+                maybe_plugin = import_helper(import_name)
+
             if isinstance(maybe_plugin, Plugin):
                 self._load_callable = maybe_plugin.__original_callable
                 self._unload_callable = maybe_plugin.__original_unload_callable

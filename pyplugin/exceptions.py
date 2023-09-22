@@ -35,3 +35,7 @@ class PluginRegisterError(PluginError):
 
 class PluginNotFoundError(PluginRegisterError):
     """ """
+
+
+class PluginRequirementError(PluginError):
+    """ """
