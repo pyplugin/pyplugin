@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import inspect
-import functools
 import typing
 import copy
 
@@ -212,15 +211,8 @@ class Plugin:
             Requirements will be passed via keyword argument using the :attr:`PluginRequirement.dest` name.
 
     Arguments:
-        plugin (PluginLike): The plugin argument can take one of three forms.
-
-            - Callable: This is the base form where the Plugin class will "wrap" this underlying callable
-              and call this function upon :meth:`load`.
-            - Plugin: This will wrap the underlying callable of the given plugin.
-            - str: This is the import form which will either find upon loading (default), or
-              find upon initialization (determined by :code:`greedy_import`). That name is expected to be
-              in one of the other forms and is first attempted to be found in the plugin registry or falls back to
-              using importlib.
+        plugin (Callable): This is the base form where the Plugin class will "wrap" this underlying callable
+            and call this function upon :meth:`load`.
 
 
         name (str | empty): The name to assign the plugin. If not provided, determined by :func:`get_plugin_name`
@@ -229,8 +221,6 @@ class Plugin:
 
         bind (bool): If True, passes self as the first argument into the load callable and unload callable.
             (default: False)
-        eager_find (bool): If True, a plugin given in import form will be greedily found at initialization time.
-            If False, the find happens at load time. (default: False)
         anonymous (bool): If True, will not globally register the plugin under its :attr:`full_name` (default: False).
 
         type (type | None): The return type of the underlying callable. (default: None)
@@ -248,7 +238,7 @@ class Plugin:
 
     def __init__(
         self,
-        plugin: PluginLike,
+        plugin: typing.Callable,
         name: str = empty,
         unload_callable: typing.Callable = void_args,
         bind: bool = False,
@@ -280,12 +270,6 @@ class Plugin:
         self.type = kwargs.get("type", None)
         self.is_class_type = kwargs.get("is_class_type", False)
         self.enforce_type = settings["enforce_type"]
-
-        while isinstance(self._load_callable, str):
-            self._handle_import_form(
-                self._load_callable,
-                eager_find=settings["eager_find"],
-            )
 
         if not self.type and self.infer_type:
             self._set_type()
@@ -589,35 +573,6 @@ class Plugin:
 
         return ret
 
-    def _handle_import_form(
-        self,
-        import_name: str,
-        eager_find: bool = False,
-    ):
-        if eager_find:
-            try:
-                maybe_plugin = get_registered_plugin(import_name)
-            except PluginNotFoundError:
-                maybe_plugin = import_helper(import_name)
-
-            if isinstance(maybe_plugin, Plugin):
-                self._load_callable = maybe_plugin.__original_callable
-                self._unload_callable = maybe_plugin.__original_unload_callable
-                if not self.type and self.infer_type:
-                    self._set_type(plugin=maybe_plugin)
-            else:
-                self._load_callable = maybe_plugin
-                if not self.type and self.infer_type:
-                    self.type = infer_return_type(self._load_callable)
-
-        else:
-
-            def load_callable(plugin_: str, *args, **kwargs):
-                self._handle_import_form(plugin_, eager_find=True)
-                return self.load(*args, **kwargs)
-
-            self._load_callable = functools.partial(load_callable, import_name)
-
     def _set_type(self, plugin: Plugin = None):
         if not plugin:
             plugin = self
@@ -648,7 +603,7 @@ class Plugin:
         self.__partially_loaded = False
 
 
-PluginLike = typing.TypeVar("PluginLike", bound=typing.Union[Plugin, str, typing.Callable])
+PluginLike = typing.TypeVar("PluginLike", bound=typing.Union[Plugin, typing.Callable])
 """
 See :class:`Plugin` initialization argument :code:`plugin` for more information.
 """

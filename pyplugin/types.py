@@ -1,9 +1,9 @@
 import typing
 
-from pyplugin.base import Plugin
+from pyplugin import Plugin
 
 
-PluginLike = typing.TypeVar("PluginLike", bound=typing.Union[Plugin, str, typing.Callable])
+PluginLike = typing.TypeVar("PluginLike", bound=typing.Union[Plugin, typing.Callable])
 """
-See :class:`~pyplugin.base.Plugin` initialization argument :code:`plugin` for more information.
+See :class:`Plugin` initialization argument :code:`plugin` for more information.
 """
