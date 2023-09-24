@@ -216,6 +216,12 @@ class Plugin:
 
         requirements (dict[str, PluginRequirement]): The dependencies this plugin requires before loading.
             Requirements will be passed via keyword argument using the :attr:`PluginRequirement.dest` name.
+        dependencies (dict[str, Plugin]): A map from :attr:`PluginRequirement.dest` to the resolved plugin.
+            This map is populated upon loading along with the corresponding :attr:`dependents` list of the
+            required Plugin.
+        dependents (list[Plugin]): A list of Plugins that depend on this Plugin. This list is populated when
+            the dependent Plugin is loaded and the dependent Plugin is guaranteed to have this Plugin in
+            its :attr:`dependencies` map.
 
     Arguments:
         plugin (Callable): This is the base form where the Plugin class will "wrap" this underlying callable
