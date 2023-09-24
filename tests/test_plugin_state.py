@@ -8,7 +8,8 @@ from hypothesis.stateful import (
 )
 
 from pyplugin import Plugin
-from pyplugin.base import empty, get_plugin_name, _PLUGIN_REGISTRY
+from pyplugin.base import _PLUGIN_REGISTRY
+from pyplugin.exceptions import CircularDependencyError
 
 from tests.strategies import function_and_call
 
@@ -51,6 +52,7 @@ class PluginStateMachine(RuleBasedStateMachine):
                 for requirement in plugin1.requirements.values()
             )
         )
+        assume(not plugin1.is_loaded())
 
         requirement = plugin2 if not use_name else plugin2.get_full_name()
         plugin1.add_requirement(requirement)
@@ -63,7 +65,10 @@ class PluginStateMachine(RuleBasedStateMachine):
         conflict_strategy=st.one_of(st.just("keep_existing"), st.just("replace"), st.just("force")),
     )
     def load_plugin(self, plugin, conflict_strategy):
-        plugin.load(conflict_strategy=conflict_strategy, **plugin.load_kwargs)
+        try:
+            plugin.load(conflict_strategy=conflict_strategy, **plugin.load_kwargs)
+        except CircularDependencyError:
+            assume(False)
 
         assert plugin.is_loaded()
 

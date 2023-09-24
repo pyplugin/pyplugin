@@ -12,6 +12,7 @@ from pyplugin.utils import (
     void_args,
     empty,
     infer_return_type,
+    ensure_a_list,
 )
 from pyplugin.settings import Settings
 
@@ -246,6 +247,7 @@ class Plugin:
         **kwargs,
     ):
         settings = Settings(**{key: value for key, value in kwargs.items() if key in Settings._SETTINGS})
+        requires = ensure_a_list(requires)
 
         self._full_name = None
         self._name = None
@@ -279,56 +281,14 @@ class Plugin:
             self._unload_callable = self._unload_callable.__get__(self, type(self))
 
         self.requirements = {}
+        self.dependencies = {}
+        self.dependents = []
+
         for requirement in requires:
             self.add_requirement(requirement)
 
         if not kwargs.get("anonymous", False):
             register(self, name=self.full_name)
-
-    def add_requirement(
-        self,
-        requirement: typing.Union[PluginLike, PluginRequirement, tuple[PluginLike, str]],
-        conflict_strategy: typing.Literal["replace", "keep_existing", "error"] = "error",
-    ):
-        """
-
-        Arguments:
-            requirement (PluginLike | PluginRequirement | tuple[PluginLike, str]): The plugin that this plugin
-                depends on and that will be passed upon :meth:`load`.
-            conflict_strategy ("replace" | "keep_existing" | "error"): Handles the case where
-                :attr:`PluginRequirement.dest` conflicts with a current requirement:
-
-                    - "replace": Remove the existing requirement
-                    - "keep_existing": Keep the existing requirement
-                    - "error": Raise PluginRequirementError
-        Returns:
-            PluginRequirement: The formatted PluginRequirement
-        Raises:
-            PluginRequirementError: If there was an issue registering the requirement
-        """
-        if isinstance(requirement, PluginRequirement):
-            pass
-        elif isinstance(requirement, tuple):
-            requirement = PluginRequirement.from_tuple(requirement)
-        elif isinstance(requirement, str):
-            requirement = PluginRequirement(requirement, dest=requirement.split(_DELIMITER)[-1])
-        elif isinstance(requirement, Plugin):
-            requirement = PluginRequirement(requirement, dest=requirement.name)
-        else:
-            plugin = Plugin(requirement)
-            requirement = PluginRequirement(plugin, dest=plugin.name)
-
-        if requirement.dest in self.requirements and requirement != self.requirements[requirement.dest]:
-            if conflict_strategy == "replace":
-                del self.requirements[requirement.dest]
-            elif conflict_strategy == "keep_existing":
-                return self.requirements[requirement.dest]
-            elif conflict_strategy == "error":
-                raise PluginRequirementError(f"Plugin requirement with dest {requirement.dest} already registered")
-
-        self.requirements[requirement.dest] = requirement
-
-        return self.requirements[requirement.dest]
 
     def __repr__(self):
         attrs = ", ".join(
@@ -443,6 +403,93 @@ class Plugin:
         other.name = dest
         return other
 
+    def add_requirement(
+        self,
+        requirement: typing.Union[PluginLike, str, PluginRequirement, tuple[PluginLike, str]],
+        conflict_strategy: typing.Literal["replace", "keep_existing", "error"] = "error",
+    ):
+        """
+
+        Arguments:
+            requirement (PluginLike | str | PluginRequirement | tuple[PluginLike, str]): The plugin that this plugin
+                depends on and that will be passed upon :meth:`load`.
+            conflict_strategy ("replace" | "keep_existing" | "error"): Handles the case where
+                :attr:`PluginRequirement.dest` conflicts with a current requirement:
+
+                    - "replace": Remove the existing requirement
+                    - "keep_existing": Keep the existing requirement
+                    - "error": Raise PluginRequirementError
+        Returns:
+            PluginRequirement: The formatted PluginRequirement
+        Raises:
+            PluginRequirementError: If there was an issue registering the requirement
+        """
+        if self.is_loaded():
+            raise PluginRequirementError("Cannot add requirements to an already loaded plugin.")
+
+        if isinstance(requirement, PluginRequirement):
+            pass
+        elif isinstance(requirement, tuple):
+            requirement = PluginRequirement.from_tuple(requirement)
+        elif isinstance(requirement, str):
+            requirement = PluginRequirement(requirement, dest=requirement.split(_DELIMITER)[-1])
+        elif isinstance(requirement, Plugin):
+            requirement = PluginRequirement(requirement, dest=requirement.name)
+        else:
+            plugin = Plugin(requirement)
+            requirement = PluginRequirement(plugin, dest=plugin.name)
+
+        if requirement.dest in self.requirements and requirement != self.requirements[requirement.dest]:
+            if conflict_strategy == "replace":
+                del self.requirements[requirement.dest]
+            elif conflict_strategy == "keep_existing":
+                return self.requirements[requirement.dest]
+            elif conflict_strategy == "error":
+                raise PluginRequirementError(f"Plugin requirement with dest {requirement.dest} already registered")
+
+        self.requirements[requirement.dest] = requirement
+
+        return self.requirements[requirement.dest]
+
+    def _populate_dependencies(self, seen=None):
+        seen = seen if seen else []
+
+        if self in seen:
+            raise CircularDependencyError(
+                " --> ".join((*(plugin.get_full_name() for plugin in seen), self.get_full_name()))
+            )
+
+        for requirement in self.requirements.values():
+            plugin = (
+                get_registered_plugin(requirement.plugin) if isinstance(requirement.plugin, str) else requirement.plugin
+            )
+            plugin._populate_dependencies(seen=seen + [self])
+
+            self.dependencies[requirement.dest] = plugin
+            if self not in plugin.dependents:
+                plugin.dependents.append(self)
+
+    def _load_dependencies(self, kwargs):
+        for dest, plugin in self.dependencies.items():
+            if dest in kwargs:
+                continue
+            kwargs[dest] = plugin.load(conflict_strategy="keep_existing")
+
+    def _load_dependents(self, dependents):
+        for dependent in dependents:
+            for dest, plugin in dependent.dependencies.items():
+                if plugin == self:
+                    dependent.load(**{dest: self.instance})
+                    return
+            raise InconsistentDependencyError(
+                f"Did not find {self.get_full_name()} in dependencies of dependent plugin {dependent.get_full_name()}"
+            )
+        return
+
+    def _unload_dependents(self):
+        for dependent in self.dependents:
+            dependent.unload(conflict_strategy="ignore")
+
     def load(
         self,
         *args,
@@ -484,6 +531,12 @@ class Plugin:
         if self.is_locked():
             raise PluginLockedError(self.get_full_name())
 
+        self._populate_dependencies()
+
+        loaded_dependents = [plugin for plugin in self.dependents if plugin.is_loaded()]
+
+        self._load_dependencies(kwargs)
+
         # set defaults from previous load settings
         if default_previous_args and self.load_kwargs:
             for key, value in self.load_kwargs.items():
@@ -501,7 +554,7 @@ class Plugin:
             elif conflict_strategy == "keep_existing":
                 return self.instance
             else:
-                raise PluginLoadError(
+                raise PluginAlreadyLoadedError(
                     f"{self.get_full_name()}: "
                     "Already loaded with conflicting arguments, "
                     f"old: {(self.load_args, self.load_kwargs)}, new: {(args, kwargs)}"
@@ -527,6 +580,8 @@ class Plugin:
             self._set_type_from_instance(instance)
 
         self.instance = instance
+
+        self._load_dependents(loaded_dependents)
 
         return self.instance
 
@@ -565,6 +620,8 @@ class Plugin:
                 return empty
             elif conflict_strategy == "error":
                 raise PluginAlreadyUnloadedError(self.get_full_name())
+
+        self._unload_dependents()
 
         with self._partial_load_context():
             ret = self._unload_callable(self.instance)

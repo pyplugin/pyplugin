@@ -9,7 +9,7 @@ class PluginLockedError(PluginError):
     """ """
 
 
-class PluginTypeError(PluginError):
+class PluginTypeError(PluginError, TypeError):
     """ """
 
 
@@ -18,6 +18,22 @@ class PluginLoadError(PluginError):
 
 
 class PluginPartiallyLoadedError(PluginLoadError):
+    """ """
+
+
+class PluginAlreadyLoadedError(PluginLoadError):
+    """ """
+
+
+class DependencyError(PluginError):
+    """ """
+
+
+class CircularDependencyError(DependencyError):
+    """ """
+
+
+class InconsistentDependencyError(DependencyError):
     """ """
 
 
