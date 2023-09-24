@@ -300,7 +300,7 @@ class Plugin:
         attrs = ", ".join(
             (
                 repr(self.__original_callable),
-                f"name='{self.name}'",
+                f"name='{self.get_full_name()}'",
                 f"unload_callable={repr(self.__original_unload_callable)}",
             )
         )
