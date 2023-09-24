@@ -153,18 +153,24 @@ def get_plugin_name(plugin: PluginLike, name: str = empty):
     raise ValueError(f"Cannot resolve name for {plugin}")
 
 
-def lookup_plugin(name: str):
+def lookup_plugin(name: str, import_lookup: bool = True):
     """
     Arguments:
         name (str): The plugin name to lookup
+        import_lookup (bool): If True and :code:`name` is not registered, will attempt to import the name
+            and wrap in :class:`Plugin`.
     Returns:
         Plugin: The plugin with the registered name, falling back to an import lookup that wraps
     """
     try:
-        plugin = get_registered_plugin(name)
+        return get_registered_plugin(name)
     except PluginNotFoundError:
-        plugin = Plugin(import_helper(name))
-    return plugin
+        if not import_lookup:
+            raise
+        plugin_like = import_helper(name)
+        if not callable(plugin_like):
+            raise
+        return Plugin(import_helper(name))
 
 
 # ------------------------------------------
@@ -246,7 +252,7 @@ class Plugin:
         requires: typing.Iterable[typing.Union[PluginLike, PluginRequirement, tuple[PluginLike, str]]] = (),
         **kwargs,
     ):
-        settings = Settings(**{key: value for key, value in kwargs.items() if key in Settings._SETTINGS})
+        self._settings = Settings(**{key: value for key, value in kwargs.items() if key in Settings._SETTINGS})
         requires = ensure_a_list(requires)
 
         self._full_name = None
@@ -268,10 +274,10 @@ class Plugin:
         self.__partially_loaded = False
         self.instance = empty
 
-        self.infer_type = settings["infer_type"]
+        self.infer_type = self._settings["infer_type"]
         self.type = kwargs.get("type", None)
         self.is_class_type = kwargs.get("is_class_type", False)
-        self.enforce_type = settings["enforce_type"]
+        self.enforce_type = self._settings["enforce_type"]
 
         if not self.type and self.infer_type:
             self._set_type()
@@ -461,7 +467,9 @@ class Plugin:
 
         for requirement in self.requirements.values():
             plugin = (
-                get_registered_plugin(requirement.plugin) if isinstance(requirement.plugin, str) else requirement.plugin
+                lookup_plugin(requirement.plugin, import_lookup=self._settings["import_lookup"])
+                if isinstance(requirement.plugin, str)
+                else requirement.plugin
             )
             plugin._populate_dependencies(seen=seen + [self])
 

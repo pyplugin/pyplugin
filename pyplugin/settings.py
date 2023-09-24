@@ -16,6 +16,7 @@ class Settings:
     _SETTINGS = {
         "infer_type": _setting(type=bool, envvar=f"{_PREFIX}_INFER_TYPE", default=True),
         "enforce_type": _setting(type=bool, envvar=f"{_PREFIX}_ENFORCE_TYPE", default=False),
+        "import_lookup": _setting(type=bool, envvar=f"{_PREFIX}_IMPORT_LOOKUP", default=True),
     }
     __slots__ = tuple(_SETTINGS.keys())
 
