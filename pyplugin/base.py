@@ -244,8 +244,8 @@ class Plugin:
         is_class_type (bool): If True, this indicates the return-value is a subclass of :attr:`type`.
             (default: False)
 
-        requires (Iterable[PluginLike | PluginRequirement | tuple[PluginLike, str]]): Any plugin dependencies to load
-            beforehand.
+        requires (PluginLike | PluginRequirement | tuple[PluginLike, str] | Iterable[...]): Any plugin dependencies to
+            load beforehand.
 
     """
 
@@ -255,7 +255,10 @@ class Plugin:
         name: str = empty,
         unload_callable: typing.Callable = void_args,
         bind: bool = False,
-        requires: typing.Iterable[typing.Union[PluginLike, PluginRequirement, tuple[PluginLike, str]]] = (),
+        requires: typing.Union[
+            typing.Union[PluginLike, PluginRequirement, tuple[PluginLike, str]],
+            typing.Iterable[typing.Union[PluginLike, PluginRequirement, tuple[PluginLike, str]]],
+        ] = (),
         **kwargs,
     ):
         self._settings = Settings(**{key: value for key, value in kwargs.items() if key in Settings._SETTINGS})
@@ -674,7 +677,7 @@ class Plugin:
         self.__partially_loaded = False
 
 
-PluginLike = typing.TypeVar("PluginLike", bound=typing.Union[Plugin, typing.Callable])
+PluginLike = typing.TypeVar("PluginLike", Plugin, typing.Callable)
 """
 See :class:`Plugin` initialization argument :code:`plugin` for more information.
 """
