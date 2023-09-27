@@ -1,3 +1,5 @@
+import functools
+
 import hypothesis.strategies as st
 from hypothesis import assume
 from hypothesis.stateful import (
@@ -34,7 +36,8 @@ class PluginStateMachine(RuleBasedStateMachine):
 
         plugin = Plugin(plugin, name=name)
 
-        plugin.load_kwargs = load_kwargs
+        plugin._load_callable = functools.partial(plugin._load_callable, **load_kwargs)
+
         self._plugins.append(plugin)
         return plugin
 
@@ -66,7 +69,7 @@ class PluginStateMachine(RuleBasedStateMachine):
     )
     def load_plugin(self, plugin, conflict_strategy):
         try:
-            plugin.load(conflict_strategy=conflict_strategy, **plugin.load_kwargs)
+            plugin.load(conflict_strategy=conflict_strategy)
         except CircularDependencyError:
             assume(False)
 

@@ -5,6 +5,7 @@ import dataclasses
 import inspect
 import typing
 import copy
+from collections import OrderedDict
 
 from pyplugin.exceptions import *
 from pyplugin.utils import (
@@ -216,7 +217,7 @@ class Plugin:
 
         requirements (dict[str, PluginRequirement]): The dependencies this plugin requires before loading.
             Requirements will be passed via keyword argument using the :attr:`PluginRequirement.dest` name.
-        dependencies (dict[str, Plugin]): A map from :attr:`PluginRequirement.dest` to the resolved plugin.
+        dependencies (OrderedDict[str, Plugin]): A map from :attr:`PluginRequirement.dest` to the resolved plugin.
             This map is populated upon loading along with the corresponding :attr:`dependents` list of the
             required Plugin.
         dependents (list[Plugin]): A list of Plugins that depend on this Plugin. This list is populated when
@@ -296,7 +297,7 @@ class Plugin:
             self._unload_callable = self._unload_callable.__get__(self, type(self))
 
         self.requirements = {}
-        self.dependencies = {}
+        self.dependencies = OrderedDict()
         self.dependents = []
 
         for requirement in requires:
@@ -353,6 +354,9 @@ class Plugin:
     def __call__(self, *args, **kwargs):
         """Alias for :meth:`load`"""
         return self.load(*args, **kwargs)
+
+    def __hash__(self) -> int:
+        return hash(self.get_full_name())
 
     def _set_full_name(self, value):
         self._full_name = value
@@ -492,7 +496,10 @@ class Plugin:
                 continue
             kwargs[dest] = plugin.load(conflict_strategy="keep_existing")
 
-    def _load_dependents(self, dependents):
+    def _load_dependents(self, dependents=None):
+        if dependents is None:
+            dependents = self.dependents
+
         for dependent in dependents:
             for dest, plugin in dependent.dependencies.items():
                 if plugin == self:
@@ -503,8 +510,11 @@ class Plugin:
             )
         return
 
-    def _unload_dependents(self):
-        for dependent in self.dependents:
+    def _unload_dependents(self, dependents=None):
+        if dependents is None:
+            dependents = self.dependents
+
+        for dependent in dependents:
             dependent.unload(conflict_strategy="ignore")
 
     def load(
@@ -598,7 +608,7 @@ class Plugin:
 
         self.instance = instance
 
-        self._load_dependents(loaded_dependents)
+        self._load_dependents(dependents=loaded_dependents)
 
         return self.instance
 
