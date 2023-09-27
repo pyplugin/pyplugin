@@ -71,6 +71,10 @@ class PluginStateMachine(RuleBasedStateMachine):
             assume(False)
 
         assert plugin.is_loaded()
+        for dest, dependency in plugin.dependencies.items():
+            assert dependency.is_loaded()
+            assert dest in plugin.load_kwargs
+            assert plugin.load_kwargs[dest] == dependency.instance
 
         return multiple()
 
@@ -84,6 +88,8 @@ class PluginStateMachine(RuleBasedStateMachine):
         plugin.unload()
 
         assert not plugin.is_loaded()
+        for dependent in plugin.dependents:
+            assert not dependent.is_loaded()
 
         return multiple()
 
