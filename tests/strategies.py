@@ -6,11 +6,11 @@ from string import printable
 import hypothesis.strategies as st
 
 
-def _add(x: int, y: int) -> int:
+def _add(x: int, y: int, **kwargs) -> int:
     return x + y
 
 
-def _concat(value1: str, value2: str, delimiter: str) -> str:
+def _concat(value1: str, value2: str, delimiter: str, **kwargs) -> str:
     return delimiter.join((value1, value2))
 
 

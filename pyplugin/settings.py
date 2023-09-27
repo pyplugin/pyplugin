@@ -14,9 +14,9 @@ _TYPE_MAP = {
 class Settings:
     _PREFIX = "PYPLUGIN"
     _SETTINGS = {
-        "eager_find": _setting(type=bool, envvar=f"{_PREFIX}_EAGER_FIND", default=False),
         "infer_type": _setting(type=bool, envvar=f"{_PREFIX}_INFER_TYPE", default=True),
         "enforce_type": _setting(type=bool, envvar=f"{_PREFIX}_ENFORCE_TYPE", default=False),
+        "import_lookup": _setting(type=bool, envvar=f"{_PREFIX}_IMPORT_LOOKUP", default=True),
     }
     __slots__ = tuple(_SETTINGS.keys())
 

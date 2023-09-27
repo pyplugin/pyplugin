@@ -1,3 +1,5 @@
+import functools
+
 import hypothesis.strategies as st
 from hypothesis import assume
 from hypothesis.stateful import (
@@ -8,7 +10,8 @@ from hypothesis.stateful import (
 )
 
 from pyplugin import Plugin
-from pyplugin.base import empty, get_plugin_name
+from pyplugin.base import _PLUGIN_REGISTRY
+from pyplugin.exceptions import CircularDependencyError
 
 from tests.strategies import function_and_call
 
@@ -23,21 +26,41 @@ class PluginStateMachine(RuleBasedStateMachine):
     @rule(
         target=plugins,
         plugin=function_and_call(),
-        name=st.one_of(st.just(empty), st.text()),
+        name=st.text(),
     )
     def add_plugin(self, plugin, name):
         plugin, load_kwargs = plugin
 
-        if name is empty:
-            name = get_plugin_name(plugin)
-
         assume(name != "")
+        assume(name not in _PLUGIN_REGISTRY)
 
         plugin = Plugin(plugin, name=name)
 
-        plugin.load_kwargs = load_kwargs
+        plugin._load_callable = functools.partial(plugin._load_callable, **load_kwargs)
+
         self._plugins.append(plugin)
         return plugin
+
+    @rule(
+        target=plugins,
+        plugin1=plugins,
+        plugin2=plugins,
+        use_name=st.booleans(),
+    )
+    def add_requirement(self, plugin1, plugin2, use_name):
+        assume(plugin1 != plugin2)
+        assume(
+            not any(
+                requirement.plugin in (plugin2, plugin2.get_full_name())
+                for requirement in plugin1.requirements.values()
+            )
+        )
+        assume(not plugin1.is_loaded())
+
+        requirement = plugin2 if not use_name else plugin2.get_full_name()
+        plugin1.add_requirement(requirement)
+
+        return multiple()
 
     @rule(
         target=plugins,
@@ -45,9 +68,16 @@ class PluginStateMachine(RuleBasedStateMachine):
         conflict_strategy=st.one_of(st.just("keep_existing"), st.just("replace"), st.just("force")),
     )
     def load_plugin(self, plugin, conflict_strategy):
-        plugin.load(conflict_strategy=conflict_strategy, **plugin.load_kwargs)
+        try:
+            plugin.load(conflict_strategy=conflict_strategy)
+        except CircularDependencyError:
+            assume(False)
 
         assert plugin.is_loaded()
+        for dest, dependency in plugin.dependencies.items():
+            assert dependency.is_loaded()
+            assert dest in plugin.load_kwargs
+            assert plugin.load_kwargs[dest] == dependency.instance
 
         return multiple()
 
@@ -61,8 +91,13 @@ class PluginStateMachine(RuleBasedStateMachine):
         plugin.unload()
 
         assert not plugin.is_loaded()
+        for dependent in plugin.dependents:
+            assert not dependent.is_loaded()
 
         return multiple()
+
+    def teardown(self):
+        _PLUGIN_REGISTRY.clear()
 
 
 TestPluginStateMachine = PluginStateMachine.TestCase
