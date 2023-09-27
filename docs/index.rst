@@ -6,6 +6,7 @@ pyplugin |release|
 
    getting_started
    user_guide
+   settings
    reference
    changelog
 

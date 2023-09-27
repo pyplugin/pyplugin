@@ -37,8 +37,9 @@ certain guarantees:
 - A plugin can be loaded (i.e. called) exactly once until it is unloaded.
 - A plugin's dependencies will be loaded before.
 - A plugin's loaded dependents will be reloaded after.
+- When a plugin is unloaded, its loaded dependents will be unloaded before.
 
-This paradigm naturally puts an emphasis on the structure of applications and less on its orchestration.
+This paradigm naturally puts an emphasis on the structure of packages and applications and less on its orchestration.
 This allows consumers of applications to easily swap or add plugins while guaranteeing conformity to API
 contracts.
 

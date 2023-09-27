@@ -5,6 +5,7 @@ import dataclasses
 import inspect
 import typing
 import copy
+import warnings
 from collections import OrderedDict
 
 from pyplugin.exceptions import *
@@ -21,6 +22,11 @@ from pyplugin.settings import Settings
 _DELIMITER = "."
 
 # ------------------------------------------
+# TypeVars
+# ------------------------------------------
+_R = typing.TypeVar("_R")
+
+# ------------------------------------------
 # Plugin Registry
 # ------------------------------------------
 
@@ -31,7 +37,7 @@ def register(
     plugin: PluginLike,
     name: str = None,
     conflict_strategy: typing.Literal["replace", "keep_existing", "error"] = "error",
-):
+) -> Plugin:
     """
     Arguments:
         plugin (PluginLike): The plugin to register
@@ -78,7 +84,7 @@ def register(
 def unregister(
     plugin: typing.Union[str, Plugin],
     conflict_strategy: typing.Literal["ignore", "error"] = "error",
-):
+) -> typing.Optional[Plugin]:
     """
 
     Arguments:
@@ -97,7 +103,7 @@ def unregister(
     # TODO: evyn.machi: perhaps in the future we can have an unregister hook
     if name not in _PLUGIN_REGISTRY:
         if conflict_strategy == "ignore":
-            return
+            return None
         elif conflict_strategy == "error":
             raise PluginRegisterError(f"Plugin {name} is not registered")
 
@@ -107,7 +113,7 @@ def unregister(
     return _PLUGIN_REGISTRY.pop(name)
 
 
-def get_registered_plugin(name: str):
+def get_registered_plugin(name: str) -> Plugin:
     """
     Arguments:
         name (str): The name of the plugin
@@ -121,12 +127,27 @@ def get_registered_plugin(name: str):
     return _PLUGIN_REGISTRY[name]
 
 
+def replace_registered_plugin(name: str, plugin: PluginLike, **kwargs):
+    """
+    Will replace the registered plugin with the given name in-place with the given plugin.
+
+    See :meth:`~pyplugin.base.Plugin.replace_with`.
+
+    Arguments:
+        name (str): The plugin name to replace
+        plugin (PluginLike): The plugin to replace the curent plugin with
+        kwargs: See :meth:`~pyplugin.base.Plugin.replace_with`
+    """
+    registered_plugin = get_registered_plugin(name)
+    registered_plugin.replace_with(plugin, **kwargs)
+
+
 # ------------------------------------------
 # Plugin Misc Utils
 # ------------------------------------------
 
 
-def get_plugin_name(plugin: PluginLike, name: str = empty):
+def get_plugin_name(plugin: PluginLike, name: str = empty) -> str:
     """
     Finds a name for the given plugin-like object. For a function this is a fully qualified
     package-module dot-delimited name. Otherwise, takes the override `name` argument, and finally
@@ -146,15 +167,13 @@ def get_plugin_name(plugin: PluginLike, name: str = empty):
         return plugin.name
     if isinstance(plugin, str):
         return plugin
-    if inspect.isfunction(plugin):
-        module = inspect.getmodule(plugin)
-        return _DELIMITER.join((module.__name__, plugin.__name__))
     if hasattr(plugin, "__name__"):
-        return getattr(plugin, "__name__")
+        module = inspect.getmodule(plugin)
+        return (module.__name__ if module else "") + _DELIMITER + plugin.__name__
     raise ValueError(f"Cannot resolve name for {plugin}")
 
 
-def lookup_plugin(name: str, import_lookup: bool = True):
+def lookup_plugin(name: str, import_lookup: bool = None) -> Plugin:
     """
     Arguments:
         name (str): The plugin name to lookup
@@ -163,12 +182,20 @@ def lookup_plugin(name: str, import_lookup: bool = True):
     Returns:
         Plugin: The plugin with the registered name, falling back to an import lookup that wraps
     """
+    settings = Settings()
+    if import_lookup is None:
+        import_lookup = settings["import_lookup"]
+
     try:
         return get_registered_plugin(name)
     except PluginNotFoundError:
         if not import_lookup:
             raise
         plugin_like = import_helper(name)
+
+        if isinstance(plugin_like, Plugin):
+            return plugin_like
+
         if not callable(plugin_like):
             raise
         return Plugin(import_helper(name))
@@ -196,7 +223,7 @@ class PluginRequirement:
         return PluginRequirement(*value)
 
 
-class Plugin:
+class Plugin(typing.Generic[_R]):
     """
 
     Attributes:
@@ -252,9 +279,9 @@ class Plugin:
 
     def __init__(
         self,
-        plugin: typing.Callable,
+        plugin: typing.Callable[..., _R],
         name: str = empty,
-        unload_callable: typing.Callable = void_args,
+        unload_callable: typing.Callable[[_R], typing.Any] = void_args,
         bind: bool = False,
         requires: typing.Union[
             typing.Union[PluginLike, PluginRequirement, tuple[PluginLike, str]],
@@ -272,29 +299,17 @@ class Plugin:
         self._locked = False
         self._kwargs = {"bind": bind, **kwargs}
 
-        self.load_args = None
-        self.load_kwargs = None
-
-        if isinstance(plugin, Plugin):
-            plugin = plugin.__original_callable
-            unload_callable = unload_callable if unload_callable != void_args else plugin.__original_unload_callable
-        self.__original_callable = self._load_callable = plugin
-        self.__original_unload_callable = self._unload_callable = unload_callable
-
-        self.__partially_loaded = False
-        self.instance = empty
-
         self.infer_type = self._settings["infer_type"]
-        self.type = kwargs.get("type", None)
+        self.type: typing.Optional[typing.Type[_R]] = kwargs.get("type", None)
         self.is_class_type = kwargs.get("is_class_type", False)
         self.enforce_type = self._settings["enforce_type"]
 
-        if not self.type and self.infer_type:
-            self._set_type()
+        self.load_args = None
+        self.load_kwargs = None
+        self.__partially_loaded = False
+        self.instance: _R = empty
 
-        if bind:
-            self._load_callable = self._load_callable.__get__(self, type(self))
-            self._unload_callable = self._unload_callable.__get__(self, type(self))
+        self._init_callables(plugin, unload_callable, bind=bind)
 
         self.requirements = {}
         self.dependencies = OrderedDict()
@@ -306,7 +321,25 @@ class Plugin:
         if not kwargs.get("anonymous", False):
             register(self, name=self.full_name)
 
-    def __repr__(self):
+    def _init_callables(
+        self,
+        load_callable,
+        unload_callable,
+        bind=False,
+    ):
+        self.load_args = None
+        self.load_kwargs = None
+        self.__original_callable = self._load_callable = load_callable
+        self.__original_unload_callable = self._unload_callable = unload_callable
+
+        if not self.type and self.infer_type:
+            self._set_type()
+
+        if bind:
+            self._load_callable = self._load_callable.__get__(self, type(self))
+            self._unload_callable = self._unload_callable.__get__(self, type(self))
+
+    def __repr__(self) -> str:
         attrs = ", ".join(
             (
                 repr(self.__original_callable),
@@ -316,7 +349,7 @@ class Plugin:
         )
         return f"{self.__class__.__name__}(" + attrs + ")"
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if not isinstance(other, Plugin):
             return False
 
@@ -334,7 +367,7 @@ class Plugin:
             and self._locked == other._locked
         )
 
-    def __copy__(self):
+    def __copy__(self) -> Plugin:
         kwargs = self._kwargs.copy()
         kwargs.update(
             anonymous=True,
@@ -351,7 +384,7 @@ class Plugin:
         ret._locked = self._locked
         return ret
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> _R:
         """Alias for :meth:`load`"""
         return self.load(*args, **kwargs)
 
@@ -362,14 +395,14 @@ class Plugin:
         self._full_name = value
         self._name = self._full_name.split(_DELIMITER)[-1]
 
-    def get_full_name(self):
+    def get_full_name(self) -> str:
         """
         Returns:
             str: The fully-qualified name
         """
         return self._full_name
 
-    full_name = property(get_full_name, _set_full_name)
+    full_name: str = property(get_full_name, _set_full_name)
 
     def _set_name(self, value):
         self._name = value
@@ -377,10 +410,10 @@ class Plugin:
         parts = self._full_name.split(_DELIMITER)
         self._full_name = _DELIMITER.join((*parts[:-1], self._name))
 
-    def get_name(self):
+    def get_name(self) -> str:
         return self._name
 
-    name = property(get_name, _set_name)
+    name: str = property(get_name, _set_name)
 
     def lock(self):
         """
@@ -394,14 +427,14 @@ class Plugin:
         """
         self._locked = False
 
-    def is_locked(self):
+    def is_locked(self) -> bool:
         """
         Return:
             bool: True, if plugin is locked else False.
         """
         return self._locked
 
-    def is_loaded(self):
+    def is_loaded(self) -> bool:
         """
         This is equivalent to checking that :attr:`instance` is not :code:`empty`.
 
@@ -410,7 +443,7 @@ class Plugin:
         """
         return self.instance is not empty
 
-    def copy(self, dest: str = None):
+    def copy(self, dest: str = None) -> Plugin:
         """
         Arguments:
             dest (str | None): the new name to give the copy, defaults to the current name
@@ -426,7 +459,7 @@ class Plugin:
         self,
         requirement: typing.Union[PluginLike, str, PluginRequirement, tuple[PluginLike, str]],
         conflict_strategy: typing.Literal["replace", "keep_existing", "error"] = "error",
-    ):
+    ) -> PluginRequirement:
         """
 
         Arguments:
@@ -523,7 +556,7 @@ class Plugin:
         conflict_strategy: typing.Literal["keep_existing", "replace", "force", "error"] = "replace",
         default_previous_args: bool = True,
         **kwargs,
-    ):
+    ) -> _R:
         """
         The main method of the Plugin class. This calls the underlying load callable.
 
@@ -615,7 +648,7 @@ class Plugin:
     def unload(
         self,
         conflict_strategy: typing.Literal["ignore", "error"] = "ignore",
-    ):
+    ) -> typing.Any:
         """
         This calls the underlying unload callable.
 
@@ -657,7 +690,7 @@ class Plugin:
 
         return ret
 
-    def _set_type(self, plugin: Plugin = None):
+    def _set_type(self, plugin: Plugin = None) -> typing.Optional[typing.Type]:
         if not plugin:
             plugin = self
 
@@ -686,8 +719,49 @@ class Plugin:
 
         self.__partially_loaded = False
 
+    def replace_with(
+        self,
+        plugin: PluginLike,
+        unload_callable: typing.Callable = None,
+        replace_type: bool = False,
+    ):
+        """
+        Replaces the underlying callables with the underlying callables of the given plugin. This
+        is useful if you wish to preserve the dependency tree, typing information, and name.
+
+        This will automatically unload and then reload the plugin if it is already loaded.
+
+        Arguments:
+            plugin (PluginLike): The plugin to replace the underlying callables with.
+            unload_callable (Callable): Used if :code:`plugin` is a non-Plugin Callable.
+            replace_type (bool): Replace the typing information as well (default: False)
+        """
+        load = False
+        bind = False
+
+        if isinstance(plugin, Plugin):
+            if unload_callable:
+                warnings.warn("Argument unload_callable ignored as argument plugin is of type Plugin")
+
+            load_callable = plugin.__original_callable
+            unload_callable = plugin.__original_unload_callable
+            bind = plugin._kwargs["bind"]
+            load = self.is_loaded()
+
+            self.unload(conflict_strategy="ignore")
+
+            if replace_type:
+                self.type = plugin.type
+                self.is_class_type = plugin.is_class_type
+                self.infer_type = plugin.infer_type
+        else:
+            load_callable = plugin
+            unload_callable = unload_callable if unload_callable else void_args
+
+        self._init_callables(load_callable, unload_callable, bind=bind)
+
+        if load:
+            self.load(conflict_strategy="error")
+
 
 PluginLike = typing.TypeVar("PluginLike", Plugin, typing.Callable)
-"""
-See :class:`Plugin` initialization argument :code:`plugin` for more information.
-"""
