@@ -10,7 +10,7 @@ from hypothesis.database import (
 
 
 local = DirectoryBasedExampleDatabase(".hypothesis/examples")
-shared = ReadOnlyDatabase(GitHubArtifactDatabase("user", "repo"))
+shared = ReadOnlyDatabase(GitHubArtifactDatabase("pyplugin", "pyplugin"))
 
 settings.register_profile("ci", database=local)
 settings.register_profile("dev", database=MultiplexedDatabase(local, shared))
