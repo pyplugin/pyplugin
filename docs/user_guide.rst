@@ -1,4 +1,4 @@
-.. _getting_started:
+.. _user_guide:
 
 User Guide
 ===========
@@ -68,8 +68,8 @@ To change this, you may pass in :code:`name`::
         return db_library.connect(uri)
 
 
-Names are automatically registered globally under their name. To register or unregister plugins, there are the
-:func:`~plugin.base.register` and :func:`~plugin.base.unregister` functions.
+Plugins are automatically registered globally under their name. To register or unregister plugins, there are the
+:func:`~pyplugin.base.register` and :func:`~pyplugin.base.unregister` functions.
 
 Anonymous Plugins
 ++++++++++++++++++
@@ -80,7 +80,7 @@ It may also be desirable to anonymize plugins so that they are not automatically
     def db_client(uri):
         return db_library.connect(uri)
 
-This may be useful if you want to fully replace an existing plugin without having to unregister it first::
+This may be useful if you want to defer registering a plugin without having to unregister it first::
 
     @plugin
     def db_client(uri):
@@ -92,8 +92,7 @@ This may be useful if you want to fully replace an existing plugin without havin
 
     register(
         replacement_for_db_client,
-        name=db_client.get_full_name(),
-        conflict_strategy="replace",
+        name="special_name",
     )
 
 Passing Plugin Instance
@@ -225,14 +224,13 @@ Load Dependencies
 #################
 
 In this step, the calling arguments are inspected. For each keyword argument which are the keys of
-the :attr:`~pyplugin.base.Plugin.dependencies` map, if they keyword is not in the varkwargs, it will attempt to load
-the mapped plugin (without any arguments).
+the :attr:`~pyplugin.base.Plugin.dependencies` map, if the keyword is not in the varkwargs used to load the plugin, it
+will attempt to load the mapped plugin (without any arguments).
 
 Resolve Load Conflicts
 #################
 
-If the plugin is already loaded and if the calling arguments are the same
-or not. If the plugin is already loaded, and the arguments are different, this is considered a load conflict. You
+If the plugin is already loaded, and the arguments are different, this is considered a load conflict. You
 can pass in :code:`conflict_strategy` to :meth:`~pyplugin.base.Plugin.load` to resolve this which can be one of
 "keep_existing", "replace", "force", or "error" (default: "replace").
 

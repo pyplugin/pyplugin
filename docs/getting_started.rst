@@ -32,6 +32,9 @@ or to pin to a tag ::
 Quickstart
 -----------------
 
+This quickstart guide is intended to give you the bare bones needed to begin writing simple plugins. For thorough
+documentation, please see the :ref:`user_guide`.
+
 Defining a Plugin
 #################
 
@@ -72,6 +75,9 @@ We can define prerequisite plugins that will and must be loaded before loading::
             return db_client.insert_one(doc)
         return func
 
+Note: Plugins are automatically named and registered under their fully-qualified dot-delimited package-name with
+using :code:`__name__`. To set the name, use the :code:`name` argument.
+
 Now to use :code:`db_writer`, :code:`db_client` must be loaded (or it will attempt to load). In addition, this
 allows consumers of this library an opportunity to swap :code:`db_client` with a custom user-defined implementation.
 For example::
@@ -90,11 +96,11 @@ For example::
         def insert_one(doc):
             self[doc["_id"]] = doc
 
-    register(
-        DictDB,
-        name=db_client.get_full_name(),
-        conflict_strategy="replace",
-    )
+    # Replace (Option 1)
+    replace_registered_plugin("db_client", DictDB)
+
+    # Replace (Option 2)
+    db_client.replace_with(DictDB)
 
 Now whenever :code:`db_writer` is used, it will use the new :code:`DictDB`.
 
