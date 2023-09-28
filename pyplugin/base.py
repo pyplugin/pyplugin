@@ -169,7 +169,7 @@ def get_plugin_name(plugin: PluginLike, name: str = empty) -> str:
     if name is not empty:
         return name
     if isinstance(plugin, Plugin):
-        return plugin.name
+        return plugin.get_full_name()
     if isinstance(plugin, str):
         return plugin
     if hasattr(plugin, "__name__"):
