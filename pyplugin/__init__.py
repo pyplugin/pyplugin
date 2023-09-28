@@ -6,6 +6,7 @@ from pyplugin.base import (
     get_plugin_name,
     lookup_plugin,
     replace_registered_plugin,
+    get_registered_plugins,
 )
 from pyplugin.decorators import plugin
 from pyplugin.types import PluginLike

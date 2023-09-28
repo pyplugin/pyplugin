@@ -30,7 +30,7 @@ _R = typing.TypeVar("_R")
 # Plugin Registry
 # ------------------------------------------
 
-_PLUGIN_REGISTRY: dict[str, Plugin] = {}
+_PLUGIN_REGISTRY: OrderedDict[str, Plugin] = OrderedDict()
 
 
 def register(
@@ -125,6 +125,14 @@ def get_registered_plugin(name: str) -> Plugin:
     if name not in _PLUGIN_REGISTRY:
         raise PluginNotFoundError(name)
     return _PLUGIN_REGISTRY[name]
+
+
+def get_registered_plugins() -> OrderedDict[str, Plugin]:
+    """
+    Returns:
+        OrderedDict[str, Plugin]: A map from plugin name to plugin in the order which they were registered.
+    """
+    return _PLUGIN_REGISTRY.copy()
 
 
 def replace_registered_plugin(name: str, plugin: PluginLike, **kwargs):
