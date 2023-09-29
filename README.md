@@ -13,9 +13,9 @@ See
 [Getting Started](https://pyplugin.readthedocs.io/en/latest/getting_started.html) for more.
 
 
-| Version Name | Latest Tag | Release Notes | Patch Notes | Documentation | Release Date | End Support Date |
-| ------------ | ---------- | ------------- | ----------- | ------------- | ------------ | ---------------- |
-| 0.1          | v0.1.0    | [Release Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.1.0) | [Patch Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.1.0) | [Documentation](https://pyplugin.readthedocs.io/en/0.1/) | 30 July 2023 | |
+| Version Name | Latest Tag | Release Notes | Patch Notes                                                             | Documentation | Release Date | End Support Date |
+| ------------ |------------| ------------- |-------------------------------------------------------------------------| ------------- | ------------ | ---------------- |
+| 0.1          | v0.1.1     | [Release Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.1.0) | [Patch Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.1.1) | [Documentation](https://pyplugin.readthedocs.io/en/0.1/) | 30 July 2023 | |
 
 
 ## Changelog v0.1
