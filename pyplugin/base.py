@@ -198,7 +198,7 @@ def lookup_plugin(name: str, import_lookup: bool = None) -> Plugin:
 
         if not callable(plugin_like):
             raise
-        return Plugin(import_helper(name))
+        return Plugin(import_helper(name), name=name)
 
 
 # ------------------------------------------
