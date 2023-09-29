@@ -73,9 +73,6 @@ def register(
         elif conflict_strategy == "error":
             raise PluginRegisterError(f"Plugin with name {name} already registered.")
 
-    if name != plugin.get_full_name():
-        plugin.full_name = name
-
     _PLUGIN_REGISTRY[name] = plugin
 
     return _PLUGIN_REGISTRY[name]
