@@ -28,3 +28,9 @@ Settings
        to using :code:`importlib` as a fallback to find and register the plugin.
      - :code:`bool`
      - :code:`True`
+   * - :code:`dynamic_requirements`
+     - :code:`PYPLUGIN_DYNAMIC_REQUIREMENTS`
+     - Loading Plugin 1 within Plugin 2 will dynamically set Plugin 1 as a requirement for Plugin 2 as if it
+       was explicitly defined in :code:`requires`.
+     - :code:`bool`
+     - :code:`True`
