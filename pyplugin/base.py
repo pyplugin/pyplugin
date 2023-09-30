@@ -147,6 +147,16 @@ def replace_registered_plugin(name: str, plugin: PluginLike, **kwargs):
     registered_plugin.replace_with(plugin, **kwargs)
 
 
+def get_aliases(plugin: Plugin) -> list[str]:
+    """
+    Arguments:
+        plugin (Plugin): The plugin to get aliases for
+    Returns:
+        list[str]: A list of names that this plugin is registered to.
+    """
+    return [name for name, plugin_ in _PLUGIN_REGISTRY.items() if plugin_ == plugin]
+
+
 # ------------------------------------------
 # Plugin Misc Utils
 # ------------------------------------------
@@ -172,10 +182,19 @@ def get_plugin_name(plugin: PluginLike, name: str = empty) -> str:
         return plugin.get_full_name()
     if isinstance(plugin, str):
         return plugin
-    if hasattr(plugin, "__name__"):
-        module = inspect.getmodule(plugin)
-        return (module.__name__ if module else "") + _DELIMITER + plugin.__name__
-    raise ValueError(f"Cannot resolve name for {plugin}")
+
+    if hasattr(plugin, "__qualname__"):
+        name = plugin.__qualname__
+    elif hasattr(plugin, "__name__"):
+        name = plugin.__name__
+
+    module = inspect.getmodule(plugin)
+    if module:
+        name = _DELIMITER.join((module.__name__, name))
+
+    if name is empty or not name:
+        raise ValueError(f"Cannot resolve name for {plugin}")
+    return name
 
 
 def lookup_plugin(name: str, import_lookup: bool = None) -> Plugin:
@@ -448,6 +467,23 @@ class Plugin(typing.Generic[_R]):
         """
         return self.instance is not empty
 
+    def is_registered(self, name: str = None) -> bool:
+        """
+        Checks if this plugin is registered under ANY name in the plugin registry. Optionally, we can specify
+        an exact name to check for.
+
+        Arguments:
+            name (str): The name to check for equality under (defaults to any).
+        Returns:
+            bool: True if this plugin is registered (optionally, under the specific name), False otherwise.
+        """
+        aliases = get_aliases(self)
+
+        if name is None:
+            return bool(aliases)
+
+        return name in aliases
+
     def copy(self, dest: str = None) -> Plugin:
         """
         Arguments:
@@ -460,7 +496,7 @@ class Plugin(typing.Generic[_R]):
         other.name = dest
         return other
 
-    def add_requirement(
+    def _add_requirement(
         self,
         requirement: typing.Union[PluginLike, str, PluginRequirement, tuple[PluginLike, str]],
         conflict_strategy: typing.Literal["replace", "keep_existing", "error"] = "error",
@@ -481,8 +517,6 @@ class Plugin(typing.Generic[_R]):
         Raises:
             PluginRequirementError: If there was an issue registering the requirement
         """
-        if self.is_loaded():
-            raise PluginRequirementError("Cannot add requirements to an already loaded plugin.")
 
         if isinstance(requirement, PluginRequirement):
             pass
@@ -508,8 +542,58 @@ class Plugin(typing.Generic[_R]):
 
         return self.requirements[requirement.dest]
 
+    def add_requirement(
+        self,
+        requirement: typing.Union[PluginLike, str, PluginRequirement, tuple[PluginLike, str]],
+        conflict_strategy: typing.Literal["replace", "keep_existing", "error"] = "error",
+    ) -> PluginRequirement:
+        """
+
+        Arguments:
+            requirement (PluginLike | str | PluginRequirement | tuple[PluginLike, str]): The plugin that this plugin
+                depends on and that will be passed upon :meth:`load`.
+            conflict_strategy ("replace" | "keep_existing" | "error"): Handles the case where
+                :attr:`PluginRequirement.dest` conflicts with a current requirement:
+
+                    - "replace": Remove the existing requirement
+                    - "keep_existing": Keep the existing requirement
+                    - "error": Raise PluginRequirementError
+        Returns:
+            PluginRequirement: The formatted PluginRequirement
+        Raises:
+            PluginRequirementError: If there was an issue registering the requirement
+        """
+        if self.is_loaded():
+            raise PluginRequirementError("Cannot add requirements to an already loaded plugin.")
+
+        return self._add_requirement(requirement, conflict_strategy=conflict_strategy)
+
+    def _populate_one_dependency(
+        self,
+        dependency: Plugin,
+        dest: str = None,
+        conflict_strategy: typing.Literal["replace", "keep_existing", "error"] = "error",
+    ):
+        if not dest:
+            dest = dependency.name
+
+        if dest in self.dependencies and self.dependencies[dest] != dependency:
+            if conflict_strategy == "replace":
+                del self.dependencies[dest]
+            elif conflict_strategy == "keep_existing":
+                return self.dependencies[dest]
+            else:
+                raise DependencyError(f"Dependency with dest {dest} already exists")
+
+        self.dependencies[dest] = dependency
+        if self not in dependency.dependents:
+            dependency.dependents.append(self)
+
+        return self.dependencies[dest]
+
     def _populate_dependencies(self, seen=None):
         seen = seen if seen else []
+        self.dependencies = OrderedDict()
 
         if self in seen:
             raise CircularDependencyError(
@@ -524,9 +608,7 @@ class Plugin(typing.Generic[_R]):
             )
             plugin._populate_dependencies(seen=seen + [self])
 
-            self.dependencies[requirement.dest] = plugin
-            if self not in plugin.dependents:
-                plugin.dependents.append(self)
+            self._populate_one_dependency(plugin, dest=requirement.dest, conflict_strategy="replace")
 
     def _load_dependencies(self, kwargs):
         for dest, plugin in self.dependencies.items():
@@ -554,6 +636,34 @@ class Plugin(typing.Generic[_R]):
 
         for dependent in dependents:
             dependent.unload(conflict_strategy="ignore")
+
+    def _handle_dynamic_requirements(self):
+        """
+        Check if we were called inside another plugin's load function, if so, this is a dynamic requirement
+        and we will treat the calling plugin the same way as any dependency
+        """
+        for captured_frame in inspect.stack():
+            f_locals = captured_frame.frame.f_locals
+            if captured_frame.function == "load" and "self" in f_locals and isinstance(f_locals["self"], Plugin):
+                if f_locals["self"] in (self, *self.dependencies.values()):
+                    continue
+
+                found = False
+                for requirement in self.requirements.values():
+                    if isinstance(requirement.plugin, Plugin) and f_locals["self"] == requirement.plugin:
+                        found = True
+                        break
+                    if isinstance(requirement.plugin, str) and f_locals["self"].is_registered(name=requirement.plugin):
+                        found = True
+                        break
+
+                if found:
+                    continue
+
+                f_locals["self"]._add_requirement(self, conflict_strategy="keep_existing")
+                f_locals["self"]._populate_one_dependency(self, conflict_strategy="keep_existing")
+                return
+        return
 
     def load(
         self,
@@ -588,13 +698,16 @@ class Plugin(typing.Generic[_R]):
         """
         args = list(args)
 
+        # check lock
+        if self.is_locked():
+            raise PluginLockedError(self.get_full_name())
+
         # check cyclic load
         if self.__partially_loaded:
             raise PluginPartiallyLoadedError(self.get_full_name())
 
-        # check lock
-        if self.is_locked():
-            raise PluginLockedError(self.get_full_name())
+        if self._settings["dynamic_requirements"]:
+            self._handle_dynamic_requirements()
 
         self._populate_dependencies()
 
@@ -671,10 +784,6 @@ class Plugin(typing.Generic[_R]):
             PluginPartiallyLoadedError: If this method was called while inside the underlying callable.
             PluginAlreadyUnloadedError: If conflict_strategy is "error" and this plugin is already unloaded.
         """
-        # check cyclic load
-        if self.__partially_loaded:
-            raise PluginPartiallyLoadedError(self.get_full_name())
-
         # check enablement
         if self.is_locked():
             raise PluginLockedError(self.get_full_name())
@@ -685,6 +794,10 @@ class Plugin(typing.Generic[_R]):
                 return empty
             elif conflict_strategy == "error":
                 raise PluginAlreadyUnloadedError(self.get_full_name())
+
+        # check cyclic load
+        if self.__partially_loaded:
+            raise PluginPartiallyLoadedError(self.get_full_name())
 
         self._unload_dependents()
 

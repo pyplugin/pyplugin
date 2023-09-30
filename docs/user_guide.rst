@@ -157,6 +157,29 @@ The :code:`requires` parameter can be in a few different forms:
 4. :class:`~pyplugin.base.PluginRequirement`: Which is a dataclass with two elements described in 3.
 5. :code:`Iterable`: An iterable of any of the above.
 
+
+Dynamic Requirements
++++++++++++++++++++++
+
+It is possible to load a plugin from within another plugin. By default, this will mark the loaded plugin as a
+requirement of the calling plugin as if it was defined in :code:`requires`. For example::
+
+    @plugin
+    def upstream(arg=4):
+        return arg
+
+    @plugin
+    def dyn_plugin():
+        return upstream()
+
+    assert dyn_plugin() == 4
+    upstream(arg=5)
+    assert dyn_plugin.instance == 5
+
+Reloading :code:`upstream` with :code:`arg=5` also reloaded :code:`dyn_plugin`.
+
+See :ref:`settings` :code:`dynamic_requirements` for more.
+
 Replacing Plugins
 ++++++++++++++++++
 This requirement framework allows consumers of this library an opportunity to swap :code:`db_client` with a
