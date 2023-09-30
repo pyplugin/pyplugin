@@ -63,7 +63,7 @@ def register(
         name = plugin.get_full_name()
 
     if name in _PLUGIN_REGISTRY:
-        if _PLUGIN_REGISTRY[name] == plugin:
+        if _PLUGIN_REGISTRY[name] is plugin:
             return _PLUGIN_REGISTRY[name]
 
         if conflict_strategy == "keep_existing":
@@ -154,7 +154,7 @@ def get_aliases(plugin: Plugin) -> list[str]:
     Returns:
         list[str]: A list of names that this plugin is registered to.
     """
-    return [name for name, plugin_ in _PLUGIN_REGISTRY.items() if plugin_ == plugin]
+    return [name for name, plugin_ in _PLUGIN_REGISTRY.items() if plugin_ is plugin]
 
 
 # ------------------------------------------
@@ -245,6 +245,24 @@ class PluginRequirement:
     @classmethod
     def from_tuple(cls, value):
         return PluginRequirement(*value)
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, PluginRequirement):
+            return False
+
+        if self.dest != other.dest:
+            return False
+
+        if isinstance(self.plugin, type(other.plugin)):
+            return self.plugin == other.plugin
+
+        try:
+            plugin1 = self.plugin if isinstance(self.plugin, Plugin) else get_registered_plugin(self.plugin)
+            plugin2 = other.plugin if isinstance(other.plugin, Plugin) else get_registered_plugin(other.plugin)
+        except PluginNotFoundError:
+            return False
+
+        return plugin1 == plugin2
 
 
 class Plugin(typing.Generic[_R]):
@@ -372,24 +390,6 @@ class Plugin(typing.Generic[_R]):
             )
         )
         return f"{self.__class__.__name__}(" + attrs + ")"
-
-    def __eq__(self, other) -> bool:
-        if not isinstance(other, Plugin):
-            return False
-
-        if self is other:
-            return True
-
-        if self.__class__ != other.__class__:
-            return False
-
-        return (
-            self.name == other.name
-            and self.__original_callable == other.__original_callable
-            and self.__original_unload_callable == other.__original_unload_callable
-            and self.instance == other.instance
-            and self._locked == other._locked
-        )
 
     def __copy__(self) -> Plugin:
         kwargs = self._kwargs.copy()
@@ -577,7 +577,7 @@ class Plugin(typing.Generic[_R]):
         if not dest:
             dest = dependency.name
 
-        if dest in self.dependencies and self.dependencies[dest] != dependency:
+        if dest in self.dependencies and self.dependencies[dest] is not dependency:
             if conflict_strategy == "replace":
                 del self.dependencies[dest]
             elif conflict_strategy == "keep_existing":
@@ -622,7 +622,7 @@ class Plugin(typing.Generic[_R]):
 
         for dependent in dependents:
             for dest, plugin in dependent.dependencies.items():
-                if plugin == self:
+                if plugin is self:
                     dependent.load(**{dest: self.instance}, conflict_strategy="force")
                     return
             raise InconsistentDependencyError(
@@ -650,7 +650,7 @@ class Plugin(typing.Generic[_R]):
 
                 found = False
                 for requirement in self.requirements.values():
-                    if isinstance(requirement.plugin, Plugin) and f_locals["self"] == requirement.plugin:
+                    if isinstance(requirement.plugin, Plugin) and f_locals["self"] is requirement.plugin:
                         found = True
                         break
                     if isinstance(requirement.plugin, str) and f_locals["self"].is_registered(name=requirement.plugin):
