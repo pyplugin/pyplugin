@@ -158,6 +158,8 @@ The :code:`requires` parameter can be in a few different forms:
 5. :code:`Iterable`: An iterable of any of the above.
 
 
+.. _dynamic_requirements:
+
 Dynamic Requirements
 +++++++++++++++++++++
 
@@ -237,7 +239,7 @@ Find, Resolve, and Cross-Correlate Dependencies
 Before loading, all dependencies defined in :attr:`~pyplugin.base.Plugin.requirements` will be resolved.
 If the dependency is a :code:`str`, then :func:`~pyplugin.base.lookup_plugin` will be used which will first check
 if there's a registered plugin with the same name, then it will optionally attempt to import the name and register the
-plugin automatically.
+plugin automatically. If :ref:`dynamic_requirements` are enabled, this will also be handled.
 
 Afterward the resolved dependency will be added to the :attr:`~pyplugin.base.Plugin.dependencies` map
 (which maps kwarg to plugin). In addition, we will append this plugin to each dependency's

@@ -623,7 +623,7 @@ class Plugin(typing.Generic[_R]):
         for dependent in dependents:
             for dest, plugin in dependent.dependencies.items():
                 if plugin == self:
-                    dependent.load(**{dest: self.instance})
+                    dependent.load(**{dest: self.instance}, conflict_strategy="force")
                     return
             raise InconsistentDependencyError(
                 f"Did not find {self.get_full_name()} in dependencies of dependent plugin {dependent.get_full_name()}"
@@ -673,9 +673,15 @@ class Plugin(typing.Generic[_R]):
         **kwargs,
     ) -> _R:
         """
-        The main method of the Plugin class. This calls the underlying load callable.
+        The main method of the Plugin class. This eventually calls the underlying load callable but keeps state
+        of dependencies and dependents before and after, as well as type checking. In order:
 
-        The arguments are passed to the underlying callable and type checking is done.
+        1. Requirements are resolved and used to populate the dependencies map, in addition to populating each
+           dependency's dependents list. If dynamic requirements are enabled, that will also be handled.
+        2. Dependencies are loaded if the argument is not passed.
+        3. Check if this plugin is already loaded based on previous load args and resolve the conflict if any.
+        4. Call the underlying callable and do type checking if enabled.
+        5. Force reload loaded dependents with the new plugin value.
 
         Arguments:
             args: varargs passed to the load callable.
@@ -690,6 +696,7 @@ class Plugin(typing.Generic[_R]):
                 (default: "replace")
             default_previous_args (bool): If True, will fill kwargs with defaults from :attr:`load_kwargs`.
                 (default: True)
+            kwargs: varkwargs passed to the load callable.
         Raises:
             PluginLockedError: If this Plugin is locked
             PluginPartiallyLoadedError: If this method was called while inside the underlying callable.
@@ -768,9 +775,11 @@ class Plugin(typing.Generic[_R]):
         conflict_strategy: typing.Literal["ignore", "error"] = "ignore",
     ) -> typing.Any:
         """
-        This calls the underlying unload callable.
+        This calls the underlying unload callable in the following steps:
 
-        The :attr:`instance` (which is the return value of the load callable) is passed to the unload_callable.
+        1. Check if this plugin is unloaded already and resolve the conflict if any.
+        2. Call the underlying unload callable with the previously loaded :attr:`instance`
+           (which is the return value of the load callable).
 
         Arguments:
             conflict_strategy ("ignore", "error"): How to handle the case this Plugin is already unloaded:
