@@ -13,14 +13,20 @@ See
 [Getting Started](https://pyplugin.readthedocs.io/en/latest/getting_started.html) for more.
 
 
-| Version Name | Latest Tag | Release Notes | Patch Notes                                                             | Documentation | Release Date | End Support Date |
-| ------------ |------------| ------------- |-------------------------------------------------------------------------| ------------- | ------------ | ---------------- |
-| 0.1          | v0.1.1     | [Release Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.1.0) | [Patch Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.1.1) | [Documentation](https://pyplugin.readthedocs.io/en/0.1/) | 30 July 2023 | |
+| Version Name | Latest Tag | Release Notes                                                             | Patch Notes                                                             | Documentation                                            | Release Date | End Support Date |
+|--------------|------------|---------------------------------------------------------------------------|-------------------------------------------------------------------------|----------------------------------------------------------|--------------|------------------|
+| 0.2          | v0.2.0     | [Release Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.2.0) | [Patch Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.2.0) | [Documentation](https://pyplugin.readthedocs.io/en/0.2/) | 30 Sep 2023  |                  |
 
 
-## Changelog v0.1
+## Changelog v0.2
 
 ### Features
+- Added function `get_registered_plugins` which returns the plugin registry
+  (a map from plugin name to Plugin in the order that they were registered).
+- Functions will now use `__qualname__` instead of just `__name__` when determining plugin name.
+- Added dynamic requirements: loading plugin 1 inside of plugin 2 will be treated in the exact manner
+  as if plugin 1 was explicitly declared a requirement of plugin 2.
+- Added method `is_registered`.
 
 ## Contributing
 Want a new feature, found a bug, or have questions? Feel free to add to our issue board on Github:
