@@ -25,7 +25,7 @@ def test_example():
 
 def test_dynamic_req():
     @plugin
-    def dyn_plugin(**kwargs):
+    def dyn_plugin():
         return upstream()
 
     assert dyn_plugin() == upstream()

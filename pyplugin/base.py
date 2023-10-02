@@ -9,13 +9,7 @@ import warnings
 from collections import OrderedDict
 
 from pyplugin.exceptions import *
-from pyplugin.utils import (
-    import_helper,
-    void_args,
-    empty,
-    infer_return_type,
-    ensure_a_list,
-)
+from pyplugin.utils import import_helper, void_args, empty, infer_return_type, ensure_a_list, make_safe_args
 from pyplugin.settings import Settings
 
 
@@ -590,10 +584,12 @@ class Plugin(typing.Generic[_R]):
             self._populate_one_dependency(plugin, dest=requirement.dest, conflict_strategy="replace")
 
     def _load_dependencies(self, kwargs):
+        ret = {}
         for dest, plugin in self.dependencies.items():
             if dest in kwargs:
                 continue
-            kwargs[dest] = plugin.load(conflict_strategy="keep_existing")
+            ret[dest] = plugin.load(conflict_strategy="keep_existing")
+        return ret
 
     def _load_dependents(self, dependents=None):
         if dependents is None:
@@ -602,7 +598,7 @@ class Plugin(typing.Generic[_R]):
         for dependent in dependents:
             for dest, plugin in dependent.dependencies.items():
                 if plugin is self:
-                    dependent.load(**{dest: self.instance}, conflict_strategy="force")
+                    dependent.load(**{dest: self.instance}, conflict_strategy="force", safe_args=True)
                     return
             raise InconsistentDependencyError(
                 f"Did not find {self.get_full_name()} in dependencies of dependent plugin {dependent.get_full_name()}"
@@ -649,6 +645,7 @@ class Plugin(typing.Generic[_R]):
         *args,
         conflict_strategy: typing.Literal["keep_existing", "replace", "force", "error"] = "replace",
         default_previous_args: bool = True,
+        safe_args: bool = False,
         **kwargs,
     ) -> _R:
         """
@@ -675,6 +672,8 @@ class Plugin(typing.Generic[_R]):
                 (default: "replace")
             default_previous_args (bool): If True, will fill kwargs with defaults from :attr:`load_kwargs`.
                 (default: True)
+            safe_args (bool): If True, will only pass arguments to the underlying callable if it matches the
+                signature (default: False).
             kwargs: varkwargs passed to the load callable.
         Raises:
             PluginPartiallyLoadedError: If this method was called while inside the underlying callable.
@@ -701,14 +700,32 @@ class Plugin(typing.Generic[_R]):
         loaded_dependents = [plugin for plugin in self.dependents if plugin.is_loaded()]
 
         try:
-            self._load_dependencies(kwargs)
+            dep_kwargs = self._load_dependencies(kwargs)
         except PluginError as err:
             raise PluginLoadError(f"{self.get_full_name()}: Could not load dependencies") from err
 
         # set defaults from previous load settings
+        default_kwargs = dep_kwargs
         if default_previous_args and self.load_kwargs:
             for key, value in self.load_kwargs.items():
-                kwargs.setdefault(key, value)
+                default_kwargs.setdefault(key, value)
+
+        default_args, default_kwargs = make_safe_args(
+            self._load_callable,
+            args,
+            kwargs,
+            self.load_args if default_previous_args else (),
+            default_kwargs,
+        )
+
+        # construct args, kwargs merging with defaults
+        args = args + list(default_args[len(args) :])
+        for key, value in default_kwargs.items():
+            kwargs.setdefault(key, value)
+
+        # optionally, make the calling arguments safe
+        if safe_args:
+            args, kwargs = make_safe_args(self._load_callable, args, kwargs)
 
         # check load conflicts
         if self.is_loaded():
