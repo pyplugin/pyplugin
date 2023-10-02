@@ -5,10 +5,6 @@ class PluginError(Exception):
     """ """
 
 
-class PluginLockedError(PluginError):
-    """ """
-
-
 class PluginTypeError(PluginError, TypeError):
     """ """
 

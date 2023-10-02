@@ -338,7 +338,6 @@ class Plugin(typing.Generic[_R]):
         self._name = None
         self.full_name = get_plugin_name(plugin, name=name)
 
-        self._locked = False
         self._kwargs = {"bind": bind, **kwargs}
 
         self.infer_type = self._settings["infer_type"]
@@ -405,7 +404,6 @@ class Plugin(typing.Generic[_R]):
             requires=self.requirements.copy().values(),
             **kwargs,
         )
-        ret._locked = self._locked
         return ret
 
     def __call__(self, *args, **kwargs) -> _R:
@@ -438,25 +436,6 @@ class Plugin(typing.Generic[_R]):
         return self._name
 
     name: str = property(get_name, _set_name)
-
-    def lock(self):
-        """
-        Locks the plugin so that it cannot by loaded or unloaded.
-        """
-        self._locked = True
-
-    def unlock(self):
-        """
-        Unlock the plugin so that it may be loaded or unloaded.
-        """
-        self._locked = False
-
-    def is_locked(self) -> bool:
-        """
-        Return:
-            bool: True, if plugin is locked else False.
-        """
-        return self._locked
 
     def is_loaded(self) -> bool:
         """
@@ -698,16 +677,11 @@ class Plugin(typing.Generic[_R]):
                 (default: True)
             kwargs: varkwargs passed to the load callable.
         Raises:
-            PluginLockedError: If this Plugin is locked
             PluginPartiallyLoadedError: If this method was called while inside the underlying callable.
             PluginTypeError: If :attr:`enforce_type` is True, and the returned value from the underlying callable
                 does not match :attr:`type`.
         """
         args = list(args)
-
-        # check lock
-        if self.is_locked():
-            raise PluginLockedError(self.get_full_name())
 
         # check cyclic load
         if self.__partially_loaded:
@@ -789,14 +763,9 @@ class Plugin(typing.Generic[_R]):
 
                 (default: "ignore")
         Raises:
-            PluginLockedError: If this Plugin is locked
             PluginPartiallyLoadedError: If this method was called while inside the underlying callable.
             PluginAlreadyUnloadedError: If conflict_strategy is "error" and this plugin is already unloaded.
         """
-        # check enablement
-        if self.is_locked():
-            raise PluginLockedError(self.get_full_name())
-
         # check if already unloaded
         if not self.is_loaded():
             if conflict_strategy == "ignore":
