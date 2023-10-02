@@ -34,4 +34,4 @@ def test_dynamic_req():
     answer = 5
     upstream(arg=answer)
 
-    assert dyn_plugin() == answer
+    assert dyn_plugin.instance == answer
