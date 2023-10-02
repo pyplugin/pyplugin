@@ -1,4 +1,6 @@
-from pyplugin import plugin, lookup_plugin
+import pytest
+
+from pyplugin import plugin
 
 
 @plugin
@@ -35,3 +37,12 @@ def test_dynamic_req():
     upstream(arg=answer)
 
     assert dyn_plugin.instance == answer
+
+
+def test_exception_throwing():
+    @plugin(anonymous=True)
+    def throw_error():
+        raise ValueError
+
+    with pytest.raises(ValueError):
+        throw_error.load()

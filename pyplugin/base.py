@@ -680,6 +680,7 @@ class Plugin(typing.Generic[_R]):
             PluginPartiallyLoadedError: If this method was called while inside the underlying callable.
             PluginTypeError: If :attr:`enforce_type` is True, and the returned value from the underlying callable
                 does not match :attr:`type`.
+            PluginLoadError: If there was an error in loading dependencies or dependents
         """
         args = list(args)
 
@@ -690,11 +691,17 @@ class Plugin(typing.Generic[_R]):
         if self._settings["dynamic_requirements"]:
             self._handle_dynamic_requirements()
 
-        self._populate_dependencies()
+        try:
+            self._populate_dependencies()
+        except PluginError as err:
+            raise PluginLoadError(f"{self.get_full_name()}: Could not resolve dependencies") from err
 
         loaded_dependents = [plugin for plugin in self.dependents if plugin.is_loaded()]
 
-        self._load_dependencies(kwargs)
+        try:
+            self._load_dependencies(kwargs)
+        except PluginError as err:
+            raise PluginLoadError(f"{self.get_full_name()}: Could not load dependencies") from err
 
         # set defaults from previous load settings
         if default_previous_args and self.load_kwargs:
@@ -740,7 +747,10 @@ class Plugin(typing.Generic[_R]):
 
         self.instance = instance
 
-        self._load_dependents(dependents=loaded_dependents)
+        try:
+            self._load_dependents(dependents=loaded_dependents)
+        except PluginError as err:
+            raise PluginLoadError(f"{self.get_full_name()}: Could not reload dependents") from err
 
         return self.instance
 
@@ -777,7 +787,10 @@ class Plugin(typing.Generic[_R]):
         if self.__partially_loaded:
             raise PluginPartiallyLoadedError(self.get_full_name())
 
-        self._unload_dependents()
+        try:
+            self._unload_dependents()
+        except PluginError as err:
+            raise PluginUnloadError(f"{self.get_full_name()}: Error in unloading dependents") from err
 
         with self._partial_load_context():
             ret = self._unload_callable(self.instance)
@@ -811,9 +824,10 @@ class Plugin(typing.Generic[_R]):
 
         self.__partially_loaded = True
 
-        yield
-
-        self.__partially_loaded = False
+        try:
+            yield
+        finally:
+            self.__partially_loaded = False
 
     def replace_with(
         self,
