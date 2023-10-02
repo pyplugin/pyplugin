@@ -5,7 +5,7 @@ from collections.abc import MutableSequence
 
 from pyplugin.base import Plugin, _R, get_registered_plugin, lookup_plugin, get_aliases
 from pyplugin.utils import void_args, empty
-from pyplugin.exceptions import PluginNotFoundError, PluginLoadError
+from pyplugin.exceptions import PluginNotFoundError, PluginLoadError, PluginUnloadError
 
 
 class PluginGroup(Plugin[list[_R]], MutableSequence[typing.Union[Plugin[_R], str]]):
@@ -99,7 +99,12 @@ class PluginGroup(Plugin[list[_R]], MutableSequence[typing.Union[Plugin[_R], str
             )
 
         ret = []
-        for plugin in plugins:
+        for plugin in reversed(plugins):
+            if not isinstance(plugin, Plugin):
+                try:
+                    plugin = lookup_plugin(plugin, import_lookup=self._settings["import_lookup"])
+                except PluginNotFoundError as err:
+                    raise PluginUnloadError(f"{self.get_full_name()}: Could not find plugin in group {plugin}") from err
             ret.append(plugin.unload(instance, *args, **kwargs))
 
         if gen:
