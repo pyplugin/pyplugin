@@ -55,7 +55,9 @@ class PluginGroup(Plugin[list[_R]], MutableSequence[typing.Union[Plugin[_R], str
                 kwargs_ if kwargs_ else kwargs,
             )
 
+        kwargs.setdefault("safe_args", True)
         ret = []
+
         for plugin in plugins:
             if not isinstance(plugin, Plugin):
                 try:
