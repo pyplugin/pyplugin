@@ -43,7 +43,9 @@ class PluginGroup(Plugin, MutableSequence[Plugin]):
             except StopIteration as err:
                 ret = err.value
 
-        if isinstance(ret, tuple):
+        if ret:
+            if not (isinstance(ret, typing.Sequence) and len(ret) == 3 and isinstance(ret[0], typing.Iterable)):
+                ret = ret, args, kwargs
             plugins_, args_, kwargs_ = ret
             plugins, args, kwargs = (
                 plugins_ if plugins_ else plugins,
@@ -73,7 +75,9 @@ class PluginGroup(Plugin, MutableSequence[Plugin]):
             except StopIteration as err:
                 ret = err.value
 
-        if isinstance(ret, tuple):
+        if ret:
+            if not (isinstance(ret, typing.Sequence) and len(ret) == 2 and isinstance(ret[0], typing.Iterable)):
+                ret = ret, instance
             plugins_, instance_ = ret
             plugins, instance = (
                 plugins_ if plugins_ else plugins,

@@ -12,7 +12,7 @@ def test_group():
     def loader(plugins):
         state(preload)
 
-        yield
+        yield plugins
 
         state(post_load)
 
