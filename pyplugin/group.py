@@ -14,11 +14,36 @@ from pyplugin.exceptions import (
 
 
 class PluginGroup(Plugin[list[_R]], MutableSequence[typing.Union[Plugin[_R], str]]):
+    """
+    This class groups together plugins under certain guarantees:
+
+    - If this group is loaded, then every plugin in this group is loaded, and the instance of this plugin is a list
+      of instances in order.
+    - Loading this group will attempt to load all plugins, consequently changing any one of these plugins will also
+      reload this group.
+    - Unloading this group will unload all plugins in this group
+
+    Note: Plugins in this group may still be loaded individually and separately.
+
+    The load_ and unload_callables for a PluginGroup are of a different form than normal. They are written in
+    contextlib.contextmanager style with a single yield statement. The load callable is passed the list of plugins
+    in addition to the load args and load kwargs. It may yield back these three things which will be used to determine
+    load order and load args. The unload_callable similarly is passed the list of instances along with unload
+    args / kwargs.
+
+    Attributes:
+        plugins (list[Plugin | str]): The list of plugins in this group
+
+    Arguments:
+        plugins (Iterable[Plugin | str]): The plugins to initialize this group with
+
+    """
+
     def __init__(
         self,
         plugin: typing.Callable = void_args,
         unload_callable: typing.Callable = void_args,
-        plugins: typing.Iterable[Plugin[_R]] = None,
+        plugins: typing.Iterable[Plugin[_R] | str] = None,
         **kwargs,
     ):
         self.plugins: list[typing.Union[Plugin[_R], str]] = list(plugins) if plugins else []
@@ -169,6 +194,8 @@ class PluginGroup(Plugin[list[_R]], MutableSequence[typing.Union[Plugin[_R], str
         return None
 
     def _add(self, value: typing.Union[Plugin[_R], str]):
+        if self.enforce_type and self.type and value.type:
+            super()._handle_enforce_type(value.type, type_=self.type, is_class_type=True)
         self.add_requirement(value)
 
     def _infer_type_from(self, value: typing.Union[Plugin[_R], str]):

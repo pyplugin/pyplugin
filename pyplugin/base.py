@@ -261,6 +261,13 @@ class PluginRequirement:
 
 class Plugin(typing.Generic[_R]):
     """
+    Plugins are arbitrary callables. They can declare other plugins as requirements while operating under
+    certain guarantees:
+
+    - A plugin can be loaded (i.e. called) exactly once until it is unloaded.
+    - A plugin's dependencies will be loaded before.
+    - A plugin's loaded dependents will be reloaded after.
+    - When a plugin is unloaded, its loaded dependents will be unloaded before.
 
     Attributes:
         name (str): The (relative) name of the plugin

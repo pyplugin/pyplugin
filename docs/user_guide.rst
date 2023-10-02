@@ -314,3 +314,81 @@ Call Underlying Unload Callable
 ###############
 
 Finally, the loaded instance is passed into the underlying :attr:`~pyplugin.base.Plugin.load_callable` and returned.
+
+
+Plugin Group
+---------------
+
+Use the :class:`~pyplugin.group.PluginGroup` class to load a group of plugins together::
+
+    from pyplugin import plugin, PluginGroup
+
+    @plugin
+    def plugin1():
+        return 1
+
+    @plugin
+    def plugin2():
+        return 2
+
+    # Option 1
+    my_group = PluginGroup(name="my_group")
+    my_group.add(plugin1)
+    my_group.add(plugin2)
+
+    # Option 2
+    my_group = PluginGroup(name="my_group", plugins=[plugin1, plugin2])
+    # or
+    my_group = PluginGroup(name="my_group", plugins=["plugin1", "plugin2"])
+
+The group itself is a Plugin and its return type is a list of the loaded instances in the same group order::
+
+    assert my_group() == [1, 2]
+
+
+The group also implements Sequence::
+
+    assert len(my_group) == 2
+
+    for plugin in my_group:
+        ...
+
+    my_group.remove(plugin1)
+
+Group Membership by Name
+#########################
+
+In the above example, we are able to add plugins to the group by name. Like plugin requirements, this will perform a
+lookup when it is time to load / unload. Unlike requirements, this will not "resolve" and cache to a specific Plugin
+upon first load but will remain dynamic.
+
+Group Requirements
+####################
+
+Like other plugins, groups can declare dependencies that must be loaded before attempting to load. If possible, these
+will be passed to the plugins in the group, being ignored if not declared in their signature (see :code:`safe_args` in
+the :meth:`~pyplugin.base.Plugin.load` method).
+
+Overriding Load Order / Arguments
+##################################
+
+Plugin Groups can also be initialized with a :code:`load_callable` like another plugin but in a special form::
+
+    from pyplugin import group
+
+    @group
+    def loader(plugins, *args, **kwargs):
+        print("Before loading")
+        yield plugins, args, kwargs
+        print("After loading")
+
+The yield statement allows to dynamically change the load order in addition to providing new load arguments. Similarly,
+this applies to the unload_callable being passed in plugins, instances, args, kwargs for unloading.
+
+
+Group Type
+###########
+
+By default, the type of the group is inferred from the element of the first registered / loaded plugin.
+
+By setting :code:`enforce_type`, this allows you to define a group that will only accept certain plugins.
