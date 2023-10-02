@@ -31,6 +31,7 @@ def test_group():
     assert plugin1.get_full_name() in loader
 
     assert loader() == [1, 2]
+
     assert state.call_args_list == [call(preload), call(post_load)]
 
 

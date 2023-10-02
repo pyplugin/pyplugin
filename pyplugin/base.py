@@ -640,6 +640,20 @@ class Plugin(typing.Generic[_R]):
                 return
         return
 
+    def _handle_enforce_type(self, instance, type_=None, is_class_type=None):
+        type_ = type_ if type_ else self.type
+        is_class_type = is_class_type if is_class_type else self.is_class_type
+
+        if self.enforce_type and type_:
+            if is_class_type:
+                comparator = issubclass
+            else:
+                comparator = isinstance
+            if not comparator(instance, type_):
+                raise PluginTypeError(
+                    f"{self.get_full_name()}: Mismatched type, " f"expected {type_} but got {type(instance)}"
+                )
+
     def load(
         self,
         *args,
@@ -751,15 +765,7 @@ class Plugin(typing.Generic[_R]):
         with self._partial_load_context():
             instance = self._load_callable(*args, **kwargs)
 
-        if self.enforce_type and self.type:
-            if self.is_class_type:
-                comparator = issubclass
-            else:
-                comparator = isinstance
-            if not comparator(instance, self.type):
-                raise PluginTypeError(
-                    f"{self.get_full_name()}: Mismatched type, " f"expected {self.type} but got {type(instance)}"
-                )
+        self._handle_enforce_type(instance)
 
         if not self.type and self.infer_type:
             self._set_type_from_instance(instance)
