@@ -24,11 +24,13 @@ def test_group():
     def plugin2():
         return 2
 
-    loader.append(plugin1)
+    loader.append(plugin1.get_full_name())
     loader.append(plugin2)
 
     assert plugin1 in loader
     assert plugin1.get_full_name() in loader
+    assert plugin2 in loader
+    assert plugin2.get_full_name() in loader
 
     assert loader() == [1, 2]
 

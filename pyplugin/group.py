@@ -1,14 +1,14 @@
 from __future__ import annotations
 import functools
 import typing
-from typing import MutableSequence
+from collections.abc import MutableSequence
 
-from pyplugin.base import Plugin, _R, get_registered_plugin
+from pyplugin.base import Plugin, _R, get_registered_plugin, lookup_plugin, get_aliases
 from pyplugin.utils import void_args, empty
-from pyplugin.exceptions import PluginNotFoundError
+from pyplugin.exceptions import PluginNotFoundError, PluginLoadError
 
 
-class PluginGroup(Plugin[list[_R]], MutableSequence[Plugin[_R]]):
+class PluginGroup(Plugin[list[_R]], MutableSequence[typing.Union[Plugin[_R], str]]):
     def __init__(
         self,
         plugin: typing.Callable = void_args,
@@ -16,7 +16,7 @@ class PluginGroup(Plugin[list[_R]], MutableSequence[Plugin[_R]]):
         plugins: typing.Iterable[Plugin[_R]] = None,
         **kwargs,
     ):
-        self.plugins = list(plugins) if plugins else []
+        self.plugins: list[typing.Union[Plugin[_R], str]] = list(plugins) if plugins else []
         super().__init__(
             plugin,
             unload_callable=unload_callable,
@@ -57,8 +57,13 @@ class PluginGroup(Plugin[list[_R]], MutableSequence[Plugin[_R]]):
 
         ret = []
         for plugin in plugins:
+            if not isinstance(plugin, Plugin):
+                try:
+                    plugin = lookup_plugin(plugin, import_lookup=self._settings["import_lookup"])
+                except PluginNotFoundError as err:
+                    raise PluginLoadError(f"{self.get_full_name()}: Could not find plugin in group {plugin}") from err
             instance = plugin.load(*args, **kwargs)
-            if not self.type:
+            if not self.type and self.infer_type:
                 self._set_type_from_instance(instance)
             ret.append(instance)
 
@@ -109,17 +114,18 @@ class PluginGroup(Plugin[list[_R]], MutableSequence[Plugin[_R]]):
         if not plugin:
             plugin = self
 
-        if len(self) != 0:
-            plugin = plugin[0]
+        for plugin_ in plugin:
+            if isinstance(plugin_, Plugin):
+                return super()._set_type(plugin=plugin)
 
-        return super()._set_type(plugin=plugin)
+        return None
 
     def __getitem__(self, index: int) -> Plugin[_R]:
         return self.plugins[index]
 
-    def __setitem__(self, index: int, value: Plugin[_R]):
+    def __setitem__(self, index: int, value: typing.Union[Plugin[_R], str]):
         self.plugins[index] = value
-        if not self.type and self.infer_type:
+        if not self.type and self.infer_type and isinstance(value, Plugin):
             super()._set_type(plugin=value)
 
     def __delitem__(self, index: int):
@@ -128,14 +134,19 @@ class PluginGroup(Plugin[list[_R]], MutableSequence[Plugin[_R]]):
     def __len__(self) -> int:
         return len(self.plugins)
 
-    def insert(self, index: int, value: Plugin[_R]):
+    def insert(self, index: int, value: typing.Union[Plugin[_R], str]):
         self.plugins.insert(index, value)
-        if not self.type and self.infer_type:
+        if not self.type and self.infer_type and isinstance(value, Plugin):
             super()._set_type(plugin=value)
 
     def __contains__(self, plugin: typing.Union[Plugin, str]) -> bool:
-        if isinstance(plugin, Plugin):
-            return super().__contains__(plugin)
+        if super(MutableSequence, self).__contains__(plugin):
+            return True
+
+        if isinstance(plugin, Plugin) and any(
+            super(MutableSequence, self).__contains__(alias) for alias in get_aliases(plugin)
+        ):
+            return True
 
         if not isinstance(plugin, str):
             return False
@@ -145,4 +156,4 @@ class PluginGroup(Plugin[list[_R]], MutableSequence[Plugin[_R]]):
         except PluginNotFoundError:
             return False
         else:
-            return super().__contains__(plugin)
+            return super(MutableSequence, self).__contains__(plugin)
