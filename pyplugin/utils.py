@@ -79,7 +79,7 @@ def void_no_args():
     return None
 
 
-def void_args(*args):
+def void_args(*args, **kwargs):
     return None
 
 

@@ -693,6 +693,8 @@ class Plugin(typing.Generic[_R]):
 
         try:
             self._populate_dependencies()
+        except CircularDependencyError:
+            raise
         except PluginError as err:
             raise PluginLoadError(f"{self.get_full_name()}: Could not resolve dependencies") from err
 
