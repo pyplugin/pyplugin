@@ -8,5 +8,6 @@ from pyplugin.base import (
     replace_registered_plugin,
     get_registered_plugins,
 )
-from pyplugin.decorators import plugin
+from pyplugin.group import PluginGroup
+from pyplugin.decorators import plugin, group
 from pyplugin.types import PluginLike
