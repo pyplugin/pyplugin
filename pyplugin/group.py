@@ -2,8 +2,9 @@ import functools
 import typing
 from typing import MutableSequence
 
-from pyplugin.base import Plugin, _R
+from pyplugin.base import Plugin, _R, get_registered_plugin
 from pyplugin.utils import void_args, empty
+from pyplugin.exceptions import PluginNotFoundError
 
 
 def load_all(plugins, *args, **kwargs):
@@ -108,3 +109,17 @@ class PluginGroup(Plugin, MutableSequence[Plugin]):
 
     def insert(self, index: int, value: Plugin):
         self.plugins.insert(index, value)
+
+    def __contains__(self, plugin: typing.Union[Plugin, str]) -> bool:
+        if isinstance(plugin, Plugin):
+            return super().__contains__(plugin)
+
+        if not isinstance(plugin, str):
+            return False
+
+        try:
+            plugin = get_registered_plugin(plugin)
+        except PluginNotFoundError:
+            return False
+        else:
+            return super().__contains__(plugin)

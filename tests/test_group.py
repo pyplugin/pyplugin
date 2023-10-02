@@ -27,6 +27,9 @@ def test_group():
     loader.append(plugin1)
     loader.append(plugin2)
 
+    assert plugin1 in loader
+    assert plugin1.get_full_name() in loader
+
     assert loader() == [1, 2]
     assert state.call_args_list == [call(preload), call(post_load)]
 
