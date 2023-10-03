@@ -905,6 +905,7 @@ class Plugin(typing.Generic[_R]):
             replace_type (bool): Replace the typing information as well (default: False)
         """
         load = False
+        loaded_dependents = []
         bind = False
 
         if isinstance(plugin, Plugin):
@@ -915,6 +916,7 @@ class Plugin(typing.Generic[_R]):
             unload_callable = plugin.__original_unload_callable
             bind = plugin._kwargs["bind"]
             load = self.is_loaded()
+            loaded_dependents = [dependent.is_loaded() for dependent in self.dependents if dependent.is_loaded()]
 
             self.unload(conflict_strategy="ignore")
 
@@ -930,6 +932,7 @@ class Plugin(typing.Generic[_R]):
 
         if load:
             self.load(conflict_strategy="error")
+            self._load_dependents(dependents=loaded_dependents)
 
 
 PluginLike = typing.TypeVar("PluginLike", Plugin, typing.Callable)
