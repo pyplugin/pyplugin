@@ -5,7 +5,11 @@ from collections.abc import MutableSequence
 
 from pyplugin.base import Plugin, _R, get_registered_plugin, lookup_plugin, get_aliases
 from pyplugin.utils import void_args, empty
-from pyplugin.exceptions import PluginNotFoundError, PluginLoadError, PluginUnloadError
+from pyplugin.exceptions import (
+    PluginNotFoundError,
+    PluginLoadError,
+    PluginUnloadError,
+)
 
 
 class PluginGroup(Plugin[list[_R]], MutableSequence[typing.Union[Plugin[_R], str]]):
@@ -22,8 +26,8 @@ class PluginGroup(Plugin[list[_R]], MutableSequence[typing.Union[Plugin[_R], str
             unload_callable=unload_callable,
             **kwargs,
         )
-        self._load_callable = functools.partial(self._load, self._load_callable)
-        self._unload_callable = functools.partial(self._unload, self._unload_callable)
+        self._load_callable = functools.partial(self._group_load, self._load_callable)
+        self._unload_callable = functools.partial(self._group_unload, self._unload_callable)
 
     def _handle_enforce_type(self, instance, type_=None, is_class_type=None):
         type_ = type_ if type_ else self.type
@@ -33,7 +37,17 @@ class PluginGroup(Plugin[list[_R]], MutableSequence[typing.Union[Plugin[_R], str
             for plugin in instance:
                 super()._handle_enforce_type(plugin, type_=type_, is_class_type=is_class_type)
 
-    def _load(self, load_callable, *args, **kwargs) -> list[_R]:
+    def _load_dependencies(self, kwargs):
+        ret = {}
+        for dest, plugin in self.dependencies.items():
+            if plugin in self:
+                continue
+            if dest in kwargs:
+                continue
+            ret[dest] = plugin.load(conflict_strategy="keep_existing")
+        return ret
+
+    def _group_load(self, load_callable, *args, **kwargs) -> list[_R]:
         plugins, args, kwargs = self.plugins, args, kwargs
 
         gen = load_callable(self.plugins, *args, **kwargs)
@@ -77,7 +91,7 @@ class PluginGroup(Plugin[list[_R]], MutableSequence[typing.Union[Plugin[_R], str
 
         return ret
 
-    def _unload(self, unload_callable, instance, *args, **kwargs) -> list[typing.Any]:
+    def _group_unload(self, unload_callable, instance, *args, **kwargs) -> list[typing.Any]:
         plugins, instance = self.plugins, instance
 
         gen = unload_callable(self.plugins, instance)
@@ -107,7 +121,7 @@ class PluginGroup(Plugin[list[_R]], MutableSequence[typing.Union[Plugin[_R], str
                     plugin = lookup_plugin(plugin, import_lookup=self._settings["import_lookup"])
                 except PluginNotFoundError as err:
                     raise PluginUnloadError(f"{self.get_full_name()}: Could not find plugin in group {plugin}") from err
-            ret.append(plugin.unload(instance, *args, **kwargs))
+            ret.append(plugin._unload(*args, _unload_dependents=False, **kwargs))
 
         if gen:
             try:
@@ -127,13 +141,36 @@ class PluginGroup(Plugin[list[_R]], MutableSequence[typing.Union[Plugin[_R], str
 
         return None
 
+    def _add(self, value: typing.Union[Plugin[_R], str]):
+        self.add_requirement(value)
+
+    def _infer_type_from(self, value: typing.Union[Plugin[_R], str]):
+        if not self.type and self.infer_type and isinstance(value, Plugin):
+            super()._set_type(plugin=value)
+
+    add = MutableSequence.append
+
+    def safe_add(self, value: typing.Union[Plugin[_R], str]):
+        """
+        Adds the given plugin to this group, unloading first before adding and then reloading if it was loaded.
+
+        Arguments:
+            value (Plugin | str): The plugin to add
+        """
+        is_loaded = self.is_loaded()
+        if is_loaded:
+            self.unload()
+        self.append(value)
+        if is_loaded:
+            self.load()
+
     def __getitem__(self, index: int) -> Plugin[_R]:
         return self.plugins[index]
 
     def __setitem__(self, index: int, value: typing.Union[Plugin[_R], str]):
+        self._add(value)
         self.plugins[index] = value
-        if not self.type and self.infer_type and isinstance(value, Plugin):
-            super()._set_type(plugin=value)
+        self._infer_type_from(value)
 
     def __delitem__(self, index: int):
         self.plugins.pop(index)
@@ -142,9 +179,9 @@ class PluginGroup(Plugin[list[_R]], MutableSequence[typing.Union[Plugin[_R], str
         return len(self.plugins)
 
     def insert(self, index: int, value: typing.Union[Plugin[_R], str]):
+        self._add(value)
         self.plugins.insert(index, value)
-        if not self.type and self.infer_type and isinstance(value, Plugin):
-            super()._set_type(plugin=value)
+        self._infer_type_from(value)
 
     def __contains__(self, plugin: typing.Union[Plugin, str]) -> bool:
         if super(MutableSequence, self).__contains__(plugin):

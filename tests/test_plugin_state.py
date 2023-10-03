@@ -9,7 +9,7 @@ from hypothesis.stateful import (
     multiple,
 )
 
-from pyplugin import Plugin
+from pyplugin import Plugin, PluginGroup
 from pyplugin.base import _PLUGIN_REGISTRY
 from pyplugin.exceptions import CircularDependencyError
 
@@ -22,6 +22,7 @@ class PluginStateMachine(RuleBasedStateMachine):
         self._plugins = []
 
     plugins = Bundle("plugins")
+    groups = Bundle("groups")
 
     @rule(
         target=plugins,
@@ -40,6 +41,29 @@ class PluginStateMachine(RuleBasedStateMachine):
 
         self._plugins.append(plugin)
         return plugin
+
+    @rule(
+        targets=(plugins, groups),
+        name=st.text(),
+    )
+    def add_group(self, name):
+        assume(name != "")
+        assume(name not in _PLUGIN_REGISTRY)
+
+        return PluginGroup(name=name)
+
+    @rule(
+        target=groups,
+        group=groups,
+        plugin=plugins,
+    )
+    def add_to_group(self, group, plugin):
+        assume(plugin not in group)
+        assume(plugin is not group)
+
+        group.safe_add(plugin)
+
+        return multiple()
 
     @rule(
         target=plugins,
@@ -76,8 +100,8 @@ class PluginStateMachine(RuleBasedStateMachine):
         assert plugin.is_loaded()
         for dest, dependency in plugin.dependencies.items():
             assert dependency.is_loaded()
-            assert dest in plugin.load_kwargs
-            assert plugin.load_kwargs[dest] == dependency.instance
+            if dest in plugin.load_kwargs and not isinstance(dependency, PluginGroup):
+                assert plugin.load_kwargs[dest] == dependency.instance
 
         return multiple()
 

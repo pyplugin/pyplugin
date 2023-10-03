@@ -227,7 +227,7 @@ class PluginRequirement:
     """
 
     Attributes:
-        plugin (Plugin, str): The plugin dependency, if this is a string, will perform a :func:`lookup_plugin` before
+        plugin (Plugin | str): The plugin dependency, if this is a string, will perform a :func:`lookup_plugin` before
             loading.
         dest (str): The keyword name to call :meth:`Plugin.load` with.
 
@@ -779,9 +779,10 @@ class Plugin(typing.Generic[_R]):
 
         return self.instance
 
-    def unload(
+    def _unload(
         self,
         conflict_strategy: typing.Literal["ignore", "error"] = "ignore",
+        _unload_dependents: bool = True,
     ) -> typing.Any:
         """
         This calls the underlying unload callable in the following steps:
@@ -812,10 +813,11 @@ class Plugin(typing.Generic[_R]):
         if self.__partially_loaded:
             raise PluginPartiallyLoadedError(self.get_full_name())
 
-        try:
-            self._unload_dependents()
-        except PluginError as err:
-            raise PluginUnloadError(f"{self.get_full_name()}: Error in unloading dependents") from err
+        if _unload_dependents:
+            try:
+                self._unload_dependents()
+            except PluginError as err:
+                raise PluginUnloadError(f"{self.get_full_name()}: Error in unloading dependents") from err
 
         with self._partial_load_context():
             ret = self._unload_callable(self.instance)
@@ -823,6 +825,30 @@ class Plugin(typing.Generic[_R]):
         self.instance = empty
 
         return ret
+
+    def unload(
+        self,
+        conflict_strategy: typing.Literal["ignore", "error"] = "ignore",
+    ) -> typing.Any:
+        """
+        This calls the underlying unload callable in the following steps:
+
+        1. Check if this plugin is unloaded already and resolve the conflict if any.
+        2. Call the underlying unload callable with the previously loaded :attr:`instance`
+           (which is the return value of the load callable).
+
+        Arguments:
+            conflict_strategy ("ignore", "error"): How to handle the case this Plugin is already unloaded:
+
+                - "ignore": Ignore the unload request
+                - "error": raises PluginAlreadyUnloadedError
+
+                (default: "ignore")
+        Raises:
+            PluginPartiallyLoadedError: If this method was called while inside the underlying callable.
+            PluginAlreadyUnloadedError: If conflict_strategy is "error" and this plugin is already unloaded.
+        """
+        return self._unload(conflict_strategy=conflict_strategy, _unload_dependents=True)
 
     def _set_type(self, plugin: Plugin = None) -> typing.Optional[typing.Type]:
         if not plugin:
