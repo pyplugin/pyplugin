@@ -15,18 +15,22 @@ See
 
 | Version Name | Latest Tag | Release Notes                                                             | Patch Notes                                                             | Documentation                                            | Release Date | End Support Date |
 |--------------|------------|---------------------------------------------------------------------------|-------------------------------------------------------------------------|----------------------------------------------------------|--------------|------------------|
-| 0.2          | v0.2.0     | [Release Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.2.0) | [Patch Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.2.0) | [Documentation](https://pyplugin.readthedocs.io/en/0.2/) | 30 Sep 2023  |                  |
+| 0.3          | v0.3.0     | [Release Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.3.0) | [Patch Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.3.0) | [Documentation](https://pyplugin.readthedocs.io/en/0.3/) | 3 Oct 2023   |                  |
 
 
-## Changelog v0.2
+## Changelog v0.3
 
 ### Features
-- Added function `get_registered_plugins` which returns the plugin registry
-  (a map from plugin name to Plugin in the order that they were registered).
-- Functions will now use `__qualname__` instead of just `__name__` when determining plugin name.
-- Added dynamic requirements: loading plugin 1 inside of plugin 2 will be treated in the exact manner
-  as if plugin 1 was explicitly declared a requirement of plugin 2.
-- Added method `is_registered`.
+
+- Added `PluginGroup` class which is a collection plugins that can be loaded and unloaded
+  together sharing requirements, along with a pre- and post-load hooking mechanism for the group loader.
+- Added parameter `make_safe` to the `load` method that will make the calling args
+  and kwargs safe, i.e. only passing in parameters that are defined in the signature.
+- Dynamic requirements no longer force-ably passes in the plugin instance on reload.
+
+### Other Changes
+
+- Improved exception handling in the `load` and `unload` methods.
 
 ## Contributing
 Want a new feature, found a bug, or have questions? Feel free to add to our issue board on Github:
