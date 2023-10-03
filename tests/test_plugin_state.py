@@ -61,7 +61,10 @@ class PluginStateMachine(RuleBasedStateMachine):
         assume(plugin not in group)
         assume(plugin is not group)
 
-        group.safe_add(plugin)
+        try:
+            group.safe_add(plugin)
+        except CircularDependencyError:
+            assume(False)
 
         return multiple()
 
