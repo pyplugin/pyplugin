@@ -63,32 +63,6 @@ class PluginGroup(Plugin[list[_R]], MutableSequence[typing.Union[Plugin[_R], str
             for plugin in instance:
                 super()._handle_enforce_type(plugin, type_=type_, is_class_type=is_class_type)
 
-    def _populate_one_dependency(
-        self,
-        dependency: Plugin,
-        dest: str = None,
-        conflict_strategy: typing.Literal["replace", "keep_existing", "error"] = "error",
-    ):
-        if not dest:
-            dest = dependency.name
-
-        if dest in self.dependencies and self.dependencies[dest] is not dependency:
-            if conflict_strategy == "replace":
-                del self.dependencies[dest]
-            elif conflict_strategy == "keep_existing":
-                return self.dependencies[dest]
-            else:
-                raise DependencyError(f"Dependency with dest {dest} already exists")
-
-        if self not in dependency.dependents:
-            dependency.dependents.append(self)
-
-        if dependency not in self:
-            self.dependencies[dest] = dependency
-            return self.dependencies[dest]
-
-        return None
-
     def _load_dependencies(self, kwargs):
         ret = {}
         for dest, plugin in self.dependencies.items():
