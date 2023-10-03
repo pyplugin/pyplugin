@@ -592,7 +592,7 @@ class Plugin(typing.Generic[_R]):
 
     def _load_dependencies(self, kwargs):
         ret = {}
-        for dest, plugin in self.dependencies.items():
+        for dest, plugin in self.dependencies.copy().items():
             if dest in kwargs:
                 continue
             ret[dest] = plugin.load(conflict_strategy="keep_existing")
@@ -602,7 +602,7 @@ class Plugin(typing.Generic[_R]):
         if dependents is None:
             dependents = self.dependents
 
-        for dependent in dependents:
+        for dependent in dependents.copy():
             for dest, plugin in dependent.dependencies.items():
                 if plugin is self:
                     dependent.load(conflict_strategy="force")
@@ -616,7 +616,7 @@ class Plugin(typing.Generic[_R]):
         if dependents is None:
             dependents = self.dependents
 
-        for dependent in dependents:
+        for dependent in dependents.copy():
             dependent.unload(conflict_strategy="ignore")
 
     def _handle_dynamic_requirements(self):
