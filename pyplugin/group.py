@@ -65,7 +65,7 @@ class PluginGroup(Plugin[list[_R]], MutableSequence[typing.Union[Plugin[_R], str
 
     def _load_dependencies(self, kwargs):
         ret = {}
-        for dest, plugin in self.dependencies.items():
+        for dest, plugin in self.dependencies.copy().items():
             if plugin in self:
                 continue
             if dest in kwargs:
