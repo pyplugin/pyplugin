@@ -9,5 +9,6 @@ API Reference
    reference/base
    reference/decorators
    reference/exceptions
+   reference/group
    reference/settings
    reference/utils
