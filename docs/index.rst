@@ -32,9 +32,16 @@ What's New in |release|
 
 Features
 ^^^^^^^^^
-- Added function :func:`~pyplugin.base.get_registered_plugins` which returns the plugin registry
-  (a map from plugin name to Plugin in the order that they were registered).
-- Functions will now use :code:`__qualname__` instead of just :code:`__name__` when determining plugin name.
-- Added dynamic requirements: loading plugin 1 inside of plugin 2 will be treated in the exact manner
-  as if plugin 1 was explicitly declared a requirement of plugin 2.
-- Added method :meth:`~pyplugin.base.Plugin.is_registered`.
+
+- Added :class:`~pyplugin.group.PluginGroup` class which is a collection of plugins that can be loaded and unloaded
+  together sharing requirements, along with a pre- and post-load hooking mechanism for group loading.
+- Added parameter :code:`make_safe` to the :meth:`~pyplugin.base.Plugin.load` method that will make the calling args
+  and kwargs safe, i.e. only passing in parameters that are defined in the signature.
+- Dynamic requirements no longer force-ably passes in the plugin instance on reload.
+
+Other Changes
+^^^^^^^^^^^^^^
+
+- Improved exception handling in the :meth:`~pyplugin.base.Plugin.load` and :meth:`~pyplugin.base.Plugin.unload`
+  methods.
+
