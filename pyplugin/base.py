@@ -605,7 +605,7 @@ class Plugin(typing.Generic[_R]):
         for dependent in dependents:
             for dest, plugin in dependent.dependencies.items():
                 if plugin is self:
-                    dependent.load(**{dest: self.instance}, conflict_strategy="force", safe_args=True)
+                    dependent.load(conflict_strategy="force")
                     return
             raise InconsistentDependencyError(
                 f"Did not find {self.get_full_name()} in dependencies of dependent plugin {dependent.get_full_name()}"
