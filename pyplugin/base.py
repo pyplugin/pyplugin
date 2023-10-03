@@ -916,7 +916,7 @@ class Plugin(typing.Generic[_R]):
             unload_callable = plugin.__original_unload_callable
             bind = plugin._kwargs["bind"]
             load = self.is_loaded()
-            loaded_dependents = [dependent.is_loaded() for dependent in self.dependents if dependent.is_loaded()]
+            loaded_dependents = [dependent for dependent in self.dependents if dependent.is_loaded()]
 
             self.unload(conflict_strategy="ignore")
 
