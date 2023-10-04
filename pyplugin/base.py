@@ -630,6 +630,10 @@ class Plugin(typing.Generic[_R]):
                 if f_locals["self"] in (self, *self.dependencies.values()):
                     continue
 
+                # Ensure we are called only in the _load_callable (as opposed to in load_dependents)
+                if not f_locals["self"].__partially_loaded:
+                    continue
+
                 found = False
                 for requirement in self.requirements.values():
                     if isinstance(requirement.plugin, Plugin) and f_locals["self"] is requirement.plugin:
