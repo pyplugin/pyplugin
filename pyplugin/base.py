@@ -10,7 +10,7 @@ from collections import OrderedDict
 
 from pyplugin.exceptions import *
 from pyplugin.utils import import_helper, void_args, empty, infer_return_type, ensure_a_list, make_safe_args
-from pyplugin.settings import Settings
+from pyplugin.settings import Settings, _SETTINGS
 
 
 _DELIMITER = "."
@@ -24,13 +24,15 @@ _R = typing.TypeVar("_R")
 # Plugin Registry
 # ------------------------------------------
 
-_PLUGIN_REGISTRY: OrderedDict[str, Plugin] = OrderedDict()
+_PLUGIN_REGISTRY: OrderedDict[str, tuple[Plugin, dict]] = OrderedDict()
 
 
 def register(
     plugin: PluginLike,
     name: str = None,
     conflict_strategy: typing.Literal["replace", "keep_existing", "error"] = "error",
+    transient: bool = False,
+    **kwargs,
 ) -> Plugin:
     """
     Arguments:
@@ -43,6 +45,8 @@ def register(
                 - "keep_existing": Ignore the incoming register request
                 - "replace": Unregister the existing plugin first (if it's not loaded).
                 - "error": raises PluginRegisterError
+
+        transient (bool): Calls to register under the same name will behave as if conflict_strategy == "replace".
     Raises:
         PluginRegisterError: If there was an error in registering the plugin (e.g. trying to replace an already loaded
             plugin)
@@ -56,20 +60,21 @@ def register(
     if not name:
         name = plugin.get_full_name()
 
-    if name in _PLUGIN_REGISTRY:
+    if name in _PLUGIN_REGISTRY and not _PLUGIN_REGISTRY[name][1].get("transient", False):
         if _PLUGIN_REGISTRY[name] is plugin:
-            return _PLUGIN_REGISTRY[name]
+            return _PLUGIN_REGISTRY[name][0]
 
         if conflict_strategy == "keep_existing":
-            return _PLUGIN_REGISTRY[name]
+            return _PLUGIN_REGISTRY[name][0]
         elif conflict_strategy == "replace":
             unregister(name, conflict_strategy="error")
         elif conflict_strategy == "error":
             raise PluginRegisterError(f"Plugin with name {name} already registered.")
 
-    _PLUGIN_REGISTRY[name] = plugin
+    kwargs.update(transient=transient)
+    _PLUGIN_REGISTRY[name] = (plugin, kwargs)
 
-    return _PLUGIN_REGISTRY[name]
+    return _PLUGIN_REGISTRY[name][0]
 
 
 def unregister(
@@ -98,10 +103,10 @@ def unregister(
         elif conflict_strategy == "error":
             raise PluginRegisterError(f"Plugin {name} is not registered")
 
-    if _PLUGIN_REGISTRY[name].is_loaded():
+    if _PLUGIN_REGISTRY[name][0].is_loaded():
         raise PluginRegisterError(f"Cannot unregister already loaded plugin {name}.")
 
-    return _PLUGIN_REGISTRY.pop(name)
+    return _PLUGIN_REGISTRY.pop(name)[0]
 
 
 def get_registered_plugin(name: str) -> Plugin:
@@ -115,7 +120,7 @@ def get_registered_plugin(name: str) -> Plugin:
     """
     if name not in _PLUGIN_REGISTRY:
         raise PluginNotFoundError(name)
-    return _PLUGIN_REGISTRY[name]
+    return _PLUGIN_REGISTRY[name][0]
 
 
 def get_registered_plugins() -> OrderedDict[str, Plugin]:
@@ -123,7 +128,7 @@ def get_registered_plugins() -> OrderedDict[str, Plugin]:
     Returns:
         OrderedDict[str, Plugin]: A map from plugin name to plugin in the order which they were registered.
     """
-    return _PLUGIN_REGISTRY.copy()
+    return OrderedDict({name: plugin for name, (plugin, _) in _PLUGIN_REGISTRY})
 
 
 def replace_registered_plugin(name: str, plugin: PluginLike, **kwargs):
@@ -148,7 +153,7 @@ def get_aliases(plugin: Plugin) -> list[str]:
     Returns:
         list[str]: A list of names that this plugin is registered to.
     """
-    return [name for name, plugin_ in _PLUGIN_REGISTRY.items() if plugin_ is plugin]
+    return [name for name, (plugin_, _) in _PLUGIN_REGISTRY.items() if plugin_ is plugin]
 
 
 # ------------------------------------------
@@ -332,7 +337,7 @@ class Plugin(typing.Generic[_R]):
         ] = (),
         **kwargs,
     ):
-        self._settings = Settings(**{key: value for key, value in kwargs.items() if key in Settings._SETTINGS})
+        self._settings = Settings(**{key: value for key, value in kwargs.items() if key in _SETTINGS})
         requires = ensure_a_list(requires)
 
         self._full_name = None
@@ -361,7 +366,14 @@ class Plugin(typing.Generic[_R]):
             self.add_requirement(requirement)
 
         if not kwargs.get("anonymous", False):
-            register(self, name=self.full_name)
+            if self._settings["register_mode"] == "eager":
+                register(self, name=self.full_name, conflict_strategy="error")
+            elif self._settings["register_mode"] == "replace":
+                register(self, name=self.full_name, conflict_strategy="replace")
+            elif self._settings["register_mode"] == "transient":
+                register(self, name=self.full_name, conflict_strategy="error", transient=True)
+            elif self._settings["register_mode"] == "replace+transient":
+                register(self, name=self.full_name, conflict_strategy="replace", transient=True)
 
     def _init_callables(
         self,

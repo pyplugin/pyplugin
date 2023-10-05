@@ -51,3 +51,11 @@ class PluginNotFoundError(PluginRegisterError):
 
 class PluginRequirementError(PluginError):
     """ """
+
+
+class SettingNotFound(Exception):
+    """ """
+
+
+class InvalidSettingError(Exception):
+    """ """

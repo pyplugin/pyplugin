@@ -34,3 +34,10 @@ Settings
        was explicitly defined in :code:`requires`.
      - :code:`bool`
      - :code:`True`
+   * - :code:`register_mode`
+     - :code:`PYPLUGIN_REGISTER_MODE`
+     - Handles registering plugins on initialization. :code:`eager`:  register as normal, :code:`replace`: replace the
+       already registered plugin, :code:`transient`: registering a plugin with same name will replace the current
+       plugin, :code:`replace+transient` is a combination of the two.
+     - :code:`eager`, :code:`replace`, :code:`transient`, :code:`replace+transient`,
+     - :code:`eager`
