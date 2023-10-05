@@ -128,7 +128,7 @@ def get_registered_plugins() -> OrderedDict[str, Plugin]:
     Returns:
         OrderedDict[str, Plugin]: A map from plugin name to plugin in the order which they were registered.
     """
-    return OrderedDict({name: plugin for name, (plugin, _) in _PLUGIN_REGISTRY})
+    return OrderedDict({name: plugin for name, (plugin, _) in _PLUGIN_REGISTRY.items()})
 
 
 def replace_registered_plugin(name: str, plugin: PluginLike, **kwargs):
