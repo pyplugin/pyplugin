@@ -6,10 +6,7 @@ from collections import namedtuple
 from pyplugin.exceptions import SettingNotFound, InvalidSettingError
 
 
-__all__ = ["_SETTINGS", "set_flag", "unset_flag", "Settings"]
-
-
-_setting = namedtuple("_setting", ("type", "envvar", "values", "default"))
+_setting = namedtuple("_setting", ("name", "type", "envvar", "values", "default"))
 
 
 _TYPE_MAP = {
@@ -18,37 +15,58 @@ _TYPE_MAP = {
 
 _PREFIX = "PYPLUGIN"
 
+INFER_TYPE = _setting(name="infer_type", type=bool, envvar=f"{_PREFIX}_INFER_TYPE", values=(True, False), default=True)
+""" Attempt to infer the type of defined plugins upon initialization and upon loading. """
+
+ENFORCE_TYPE = _setting(
+    name="enforce_type", type=bool, envvar=f"{_PREFIX}_ENFORCE_TYPE", values=(True, False), default=False
+)
+""" Throw an error if a plugin is loaded that returns an object that does not match its defined type. """
+
+IMPORT_LOOKUP = _setting(
+    name="import_lookup", type=bool, envvar=f"{_PREFIX}_IMPORT_LOOKUP", values=(True, False), default=True
+)
+""" 
+When using the :func:`~pyplugin.base.lookup_plugin` function, (e.g. in dependency lookups), default
+to using :code:`importlib` as a fallback to find and register the plugin. 
+"""
+
+DYNAMIC_REQUIREMENTS = _setting(
+    name="dynamic_requirements", type=bool, envvar=f"{_PREFIX}_DYNAMIC_REQUIREMENTS", values=(True, False), default=True
+)
+""" 
+Loading Plugin 1 within Plugin 2 will dynamically set Plugin 1 as a requirement for Plugin 2 as if it was explicitly 
+defined in :code:`requires`.
+"""
+
+REGISTER_MODE = _setting(
+    name="register_mode",
+    type=str,
+    envvar=f"{_PREFIX}_REGISTER_MODE",
+    values=("eager", "replace", "transient", "replace+transient"),
+    default="eager",
+)
+"""
+Handles registering plugins on initialization. :code:`eager`:  register as normal, :code:`replace`: replace the
+already registered plugin, :code:`transient`: registering a plugin with same name will replace the current
+plugin, :code:`replace+transient` is a combination of the two.
+"""
+
 _SETTINGS: dict[str, _setting] = {
-    "infer_type": _setting(type=bool, envvar=f"{_PREFIX}_INFER_TYPE", values=(True, False), default=True),
-    "enforce_type": _setting(type=bool, envvar=f"{_PREFIX}_ENFORCE_TYPE", values=(True, False), default=False),
-    "import_lookup": _setting(type=bool, envvar=f"{_PREFIX}_IMPORT_LOOKUP", values=(True, False), default=True),
-    "dynamic_requirements": _setting(
-        type=bool, envvar=f"{_PREFIX}_DYNAMIC_REQUIREMENTS", values=(True, False), default=True
-    ),
-    "register_mode": _setting(
-        type=str,
-        envvar=f"{_PREFIX}_REGISTER_MODE",
-        values=("eager", "replace", "transient", "replace+transient"),
-        default="eager",
-    ),
+    setting.name: setting for setting in (INFER_TYPE, ENFORCE_TYPE, IMPORT_LOOKUP, DYNAMIC_REQUIREMENTS, REGISTER_MODE)
 }
 
 
-for key in _SETTINGS:
-    globals()[key.upper()] = key
-    __all__.append(key.upper())
-
-
-def set_flag(setting: str, value: typing.Any):
+def set_flag(setting: typing.Union[str, _setting], value: typing.Any):
     """
     Arguments:
       setting (str): The setting name to set
       value (Any): The value to set
     """
-    if setting not in _SETTINGS:
-        raise SettingNotFound(setting)
-
-    setting = _SETTINGS[setting]
+    if isinstance(setting, str):
+        if setting not in _SETTINGS:
+            raise SettingNotFound(setting)
+        setting = _SETTINGS[setting]
 
     os.environ[setting.envvar] = value
 
@@ -60,10 +78,10 @@ def unset_flag(setting: str):
     Returns:
         Any | None: The previously set value or None
     """
-    if setting not in _SETTINGS:
-        raise SettingNotFound(setting)
-
-    setting = _SETTINGS[setting]
+    if isinstance(setting, str):
+        if setting not in _SETTINGS:
+            raise SettingNotFound(setting)
+        setting = _SETTINGS[setting]
 
     return os.environ.pop(setting.envvar, None)
 
@@ -87,7 +105,7 @@ class Settings:
             if key not in _SETTINGS:
                 raise KeyError(f"{key} is not a valid setting.")
 
-        for key, (type_, envvar, values, default) in _SETTINGS.items():
+        for key, (_, type_, envvar, values, default) in _SETTINGS.items():
             value = os.getenv(envvar, default)
             if isinstance(value, str):
                 value = _TYPE_MAP.get(type_, type_)(value)

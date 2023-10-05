@@ -14,7 +14,7 @@ Settings
      - Default
    * - :code:`infer_type`
      - :code:`PYPLUGIN_INFER_TYPE`
-     - Attempt to infer the type of defined plugins if not given upon initialization and upon loading.
+     - Attempt to infer the type of defined plugins upon initialization and upon loading.
      - :code:`bool`
      - :code:`True`
    * - :code:`enforce_type`
