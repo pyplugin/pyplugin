@@ -10,7 +10,7 @@ from collections import OrderedDict
 
 from pyplugin.exceptions import *
 from pyplugin.utils import import_helper, void_args, empty, infer_return_type, ensure_a_list, make_safe_args
-from pyplugin.settings import Settings, _SETTINGS
+from pyplugin.settings import Settings, _SETTINGS, with_flag, REGISTER_MODE
 
 
 _DELIMITER = "."
@@ -214,7 +214,8 @@ def lookup_plugin(name: str, import_lookup: bool = None) -> Plugin:
     except PluginNotFoundError:
         if not import_lookup:
             raise
-        plugin_like = import_helper(name)
+        with with_flag(REGISTER_MODE, "transient"):
+            plugin_like = import_helper(name)
 
         if isinstance(plugin_like, Plugin):
             return plugin_like
@@ -414,7 +415,7 @@ class Plugin(typing.Generic[_R]):
             unload_callable=self.__original_unload_callable,
             name=self.name,
             type=self.type,
-            requires=self.requirements.copy().values(),
+            requires=list(self.requirements.copy().values()),
             **kwargs,
         )
         return ret
@@ -640,11 +641,11 @@ class Plugin(typing.Generic[_R]):
             f_locals = captured_frame.frame.f_locals
             if captured_frame.function == "load" and "self" in f_locals and isinstance(f_locals["self"], Plugin):
                 if f_locals["self"] in (self, *self.dependencies.values()):
-                    continue
+                    return
 
                 # Ensure we are called only in the _load_callable (as opposed to in load_dependents)
                 if not f_locals["self"].__partially_loaded:
-                    continue
+                    return
 
                 found = False
                 for requirement in self.requirements.values():

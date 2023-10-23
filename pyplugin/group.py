@@ -96,6 +96,7 @@ class PluginGroup(Plugin[list[_R]], MutableSequence[typing.Union[Plugin[_R], str
             )
 
         kwargs.setdefault("safe_args", True)
+        kwargs.setdefault("conflict_strategy", "keep_existing")
         ret = []
 
         for plugin in plugins:

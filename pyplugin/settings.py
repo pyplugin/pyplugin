@@ -1,9 +1,11 @@
+import contextlib
 import os
 import typing
 
 from collections import namedtuple
 
 from pyplugin.exceptions import SettingNotFound, InvalidSettingError
+from pyplugin.utils import empty
 
 
 _setting = namedtuple("_setting", ("name", "type", "envvar", "values", "default"))
@@ -84,6 +86,22 @@ def unset_flag(setting: str):
         setting = _SETTINGS[setting]
 
     return os.environ.pop(setting.envvar, None)
+
+
+@contextlib.contextmanager
+def with_flag(setting: typing.Union[str, _setting], value: typing.Any):
+    if isinstance(setting, str):
+        if setting not in _SETTINGS:
+            raise SettingNotFound(setting)
+        setting = _SETTINGS[setting]
+    old_value = os.getenv(setting.envvar, empty)
+
+    set_flag(setting, value)
+    try:
+        yield
+    finally:
+        if old_value is not empty:
+            set_flag(setting, old_value)
 
 
 class Settings:
