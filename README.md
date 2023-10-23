@@ -15,7 +15,7 @@ See
 
 | Version Name | Latest Tag | Release Notes                                                             | Patch Notes                                                             | Documentation                                            | Release Date | End Support Date |
 |--------------|------------|---------------------------------------------------------------------------|-------------------------------------------------------------------------|----------------------------------------------------------|--------------|------------------|
-| 0.4          | v0.4.0     | [Release Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.4.0) | [Patch Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.4.0) | [Documentation](https://pyplugin.readthedocs.io/en/0.4/) | 23 Oct 2023  |                  |
+| 0.4          | v0.4.1     | [Release Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.4.0) | [Patch Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.4.1) | [Documentation](https://pyplugin.readthedocs.io/en/0.4/) | 23 Oct 2023  |                  |
 
 
 ## Changelog v0.4
