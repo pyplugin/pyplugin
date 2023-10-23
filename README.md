@@ -15,22 +15,24 @@ See
 
 | Version Name | Latest Tag | Release Notes                                                             | Patch Notes                                                             | Documentation                                            | Release Date | End Support Date |
 |--------------|------------|---------------------------------------------------------------------------|-------------------------------------------------------------------------|----------------------------------------------------------|--------------|------------------|
-| 0.3          | v0.3.5     | [Release Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.3.0) | [Patch Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.3.5) | [Documentation](https://pyplugin.readthedocs.io/en/0.3/) | 3 Oct 2023   |                  |
+| 0.4          | v0.4.0     | [Release Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.4.0) | [Patch Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.4.0) | [Documentation](https://pyplugin.readthedocs.io/en/0.4/) | 23 Oct 2023  |                  |
 
 
-## Changelog v0.3
+## Changelog v0.4
 
 ### Features
 
-- Added `PluginGroup` class which is a collection of plugins that can be loaded and unloaded
-  together sharing requirements, along with a pre- and post-load hooking mechanism for group loading.
-- Added parameter `make_safe` to the `load` method that will make the calling args
-  and kwargs safe, i.e. only passing in parameters that are defined in the signature.
-- Dynamic requirements no longer force-ably passes in the plugin instance on reload.
+- Added new setting `register_mode` which can be used to configure how plugins get registered upon
+  initialization.
+- Added `set_flag` function that will set a particular setting globally.
+- Added `unset_flag` function to reset a setting to default.
+- Added `with_flag` context manager to temporarily set a setting.
 
-### Other Changes
+### Fixes
 
-- Improved exception handling in the `load` and `unload` methods.
+- Fixes dynamic requirements being registered in other parts of the load function (e.g. when loading a dependency).
+- Fixes groups reloading entirely when loading individual elements.
+- Fixes copying of requirements when copying a Plugin.
 
 ## Contributing
 Want a new feature, found a bug, or have questions? Feel free to add to our issue board on Github:
