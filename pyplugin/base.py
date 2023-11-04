@@ -299,6 +299,8 @@ class Plugin(typing.Generic[_R]):
         dependents (list[Plugin]): A list of Plugins that depend on this Plugin. This list is populated when
             the dependent Plugin is loaded and the dependent Plugin is guaranteed to have this Plugin in
             its :attr:`dependencies` map.
+        callbacks (Iterable[typing.Callable[[_R], _R]]): Functions that will be called in order that modify the
+            loaded plugin instance after loading.
 
     Arguments:
         plugin (Callable): This is the base form where the Plugin class will "wrap" this underlying callable
@@ -323,6 +325,8 @@ class Plugin(typing.Generic[_R]):
 
         requires (PluginLike | PluginRequirement | tuple[PluginLike, str] | Iterable[...]): Any plugin dependencies to
             load beforehand.
+        callbacks (Iterable[typing.Callable[[_R], _R]]): Functions that will be called in order that modify the
+            loaded plugin instance after loading.
 
     """
 
@@ -336,6 +340,7 @@ class Plugin(typing.Generic[_R]):
             typing.Union[PluginLike, PluginRequirement, tuple[PluginLike, str]],
             typing.Iterable[typing.Union[PluginLike, PluginRequirement, tuple[PluginLike, str]]],
         ] = (),
+        callbacks: typing.Iterable[typing.Callable[[_R], _R]] = (),
         **kwargs,
     ):
         self._settings = Settings(**{key: value for key, value in kwargs.items() if key in _SETTINGS})
@@ -362,6 +367,7 @@ class Plugin(typing.Generic[_R]):
         self.requirements = {}
         self.dependencies = OrderedDict()
         self.dependents = []
+        self.callbacks = list(callbacks)
 
         for requirement in requires:
             self.add_requirement(requirement)
@@ -416,6 +422,7 @@ class Plugin(typing.Generic[_R]):
             name=self.name,
             type=self.type,
             requires=list(self.requirements.copy().values()),
+            callbacks=list(self.callbacks),
             **kwargs,
         )
         return ret
@@ -450,6 +457,21 @@ class Plugin(typing.Generic[_R]):
         return self._name
 
     name: str = property(get_name, _set_name)
+
+    def add_callback(self, callback: typing.Callable[[_R], _R]):
+        """
+        Add a callback to plugin which will modify the loaded plugin instance after loading.
+
+        Arguments:
+            callback (Callable[[_R], _R]): The callback.
+        """
+        loaded = self.is_loaded()
+        self.unload(conflict_strategy="ignore")
+
+        self.callbacks.append(callback)
+
+        if loaded:
+            self.load(default_previous_args=True)
 
     def is_loaded(self) -> bool:
         """
@@ -694,7 +716,7 @@ class Plugin(typing.Generic[_R]):
            dependency's dependents list. If dynamic requirements are enabled, that will also be handled.
         2. Dependencies are loaded if the argument is not passed.
         3. Check if this plugin is already loaded based on previous load args and resolve the conflict if any.
-        4. Call the underlying callable and do type checking if enabled.
+        4. Call the underlying callable and call any callbacks in order, do type checking if enabled.
         5. Force reload loaded dependents with the new plugin value.
 
         Arguments:
@@ -788,6 +810,8 @@ class Plugin(typing.Generic[_R]):
 
         with self._partial_load_context():
             instance = self._load_callable(*args, **kwargs)
+            for callback in self.callbacks:
+                instance = callback(instance)
 
         self._handle_enforce_type(instance)
 
