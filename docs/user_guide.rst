@@ -230,7 +230,7 @@ Plugin load can be broken down into the following steps:
 1. Find, resolve, and cross-correlate dependencies
 2. Load dependencies
 3. Resolve any load conflicts (e.g. unload this plugin first then continue on)
-4. Call the underlying callable
+4. Call the underlying callable and any callbacks in order
 5. Reload loaded dependents
 
 Find, Resolve, and Cross-Correlate Dependencies
@@ -264,11 +264,13 @@ can pass in :code:`conflict_strategy` to :meth:`~pyplugin.base.Plugin.load` to r
 - :code:`force`: Like :code:`replace` but also will apply if :attr:`load_args` and :attr:`load_kwargs` match.
 - :code:`error`: raises :class:`~pyplugin.base.exceptions.PluginLoadError`.
 
-Call Underlying Callable
+Call Underlying Callable & Callbacks
 #################
 
 The plugin's underlying :attr:`~pyplugin.base.Plugin.load_callable` is then passed the arguments and keyword arguments
 and the return value is then saved.
+
+Any callbacks defined in :attr:`~pyplugin.base.Plugin.callbacks` will be called in order.
 
 Reload Loaded Dependents
 #################

@@ -46,3 +46,13 @@ def test_exception_throwing():
 
     with pytest.raises(ValueError):
         throw_error.load()
+
+
+def test_callback():
+    @plugin(anonymous=True)
+    def returns_1():
+        return 1
+
+    returns_1.add_callback(lambda instance: instance + 1)
+
+    assert returns_1() == 2
