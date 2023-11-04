@@ -422,6 +422,7 @@ class Plugin(typing.Generic[_R]):
             name=self.name,
             type=self.type,
             requires=list(self.requirements.copy().values()),
+            callbacks=list(self.callbacks),
             **kwargs,
         )
         return ret
