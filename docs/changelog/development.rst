@@ -11,3 +11,4 @@ Fixes
 
 Other Changes
 --------------
+- Development to use python 3.12

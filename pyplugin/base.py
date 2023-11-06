@@ -662,7 +662,7 @@ class Plugin(typing.Generic[_R]):
         for captured_frame in inspect.stack():
             f_locals = captured_frame.frame.f_locals
             if captured_frame.function == "load" and "self" in f_locals and isinstance(f_locals["self"], Plugin):
-                if f_locals["self"] in (self, *self.dependencies.values()):
+                if f_locals["self"] is self:
                     continue
 
                 # Ensure we are called only in the _load_callable (as opposed to in load_dependents)
