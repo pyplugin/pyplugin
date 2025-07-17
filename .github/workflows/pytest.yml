@@ -31,7 +31,7 @@ jobs:
     - name: Installing requirements
       run: pip install ".[dev]"
     - name: Download example database
-      uses: dawidd6/action-download-artifact@v2
+      uses: actions/download-artifact@v4
       with:
         name: hypothesis-example-db
         path: .hypothesis/examples
@@ -40,7 +40,7 @@ jobs:
     - name: Run tests with pytest
       run: python -m pytest -s tests/
     - name: Upload example database
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: hypothesis-example-db
