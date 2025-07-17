@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        python-version: [ "3.9", "3.12" ]
+        python-version: [ "3.9", "3.12", "3.13" ]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -30,18 +30,13 @@ jobs:
         cache: "pip"
     - name: Installing requirements
       run: pip install ".[dev]"
-    - name: Download example database
-      uses: dawidd6/action-download-artifact@v2
+    - name: Cache hypothesis database
+      uses: actions/cache@v4
       with:
-        name: hypothesis-example-db
         path: .hypothesis/examples
-        if_no_artifact_found: warn
-        workflow_conclusion: completed
+        key: hypothesis-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('tests/**/*.py') }}
+        restore-keys: |
+          hypothesis-${{ runner.os }}-py${{ matrix.python-version }}-
+          hypothesis-${{ runner.os }}-
     - name: Run tests with pytest
       run: python -m pytest -s tests/
-    - name: Upload example database
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: hypothesis-example-db
-        path: .hypothesis/examples
