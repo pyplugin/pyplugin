@@ -31,7 +31,6 @@ jobs:
         python -m coverage run --source=pyplugin/ -m pytest
         python -m coverage xml
     - name: Upload test results to Codecov
-      if: ${{ !cancelled() }}
-      uses: codecov/test-results-action@v1
+      uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
