@@ -20,11 +20,11 @@ sys.path.insert(0, os.path.abspath("../"))
 # -- Project information -----------------------------------------------------
 
 project = "pyplugin"
-copyright = "2023, Evyn Machi"
+copyright = "2025, Evyn Machi"
 author = "Evyn Machi"
 
 # The full version, including alpha/beta/rc tags
-release = "v0.4.1"
+release = "v0.6.0"
 
 
 # -- General configuration ---------------------------------------------------
