@@ -26,19 +26,11 @@ jobs:
         cache: "pip"
     - name: Installing requirements
       run: pip install ".[dev]"
-    - name: Cache hypothesis database
-      uses: actions/cache@v4
-      with:
-        path: .hypothesis/examples
-        key: hypothesis-${{ runner.os }}-py3.13-${{ hashFiles('tests/**/*.py') }}
-        restore-keys: |
-          hypothesis-${{ runner.os }}-py3.13-
-          hypothesis-${{ runner.os }}-
     - name: Generate Coverage Report
       run: |
         python -m coverage run --source=pyplugin/ -m pytest
         python -m coverage xml
-    - name: Upload Coverage to Codecov
-      uses: codecov/codecov-action@v3
+    - name: Upload test results to Codecov
+      uses: codecov/codecov-action@v5
       with:
-        file: coverage.xml
+        token: ${{ secrets.CODECOV_TOKEN }}

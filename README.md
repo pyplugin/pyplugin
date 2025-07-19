@@ -15,28 +15,18 @@ See
 
 | Version Name | Latest Tag | Release Notes                                                             | Patch Notes                                                             | Documentation                                            | Release Date | End Support Date |
 |--------------|------------|---------------------------------------------------------------------------|-------------------------------------------------------------------------|----------------------------------------------------------|--------------|------------------|
-| 0.4          | v0.4.1     | [Release Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.4.0) | [Patch Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.4.1) | [Documentation](https://pyplugin.readthedocs.io/en/0.4/) | 23 Oct 2023  |                  |
+| 0.5          | v0.5.0     | [Release Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.5.0) | [Patch Notes](https://github.com/pyplugin/pyplugin/releases/tag/v0.5.0) | [Documentation](https://pyplugin.readthedocs.io/en/0.5/) | 19 July 2025  |                  |
 
 
-## Changelog v0.4
+## Changelog v0.5
 
 ### Features
 
-- Added new setting `register_mode` which can be used to configure how plugins get registered upon
-  initialization.
-- Added `set_flag` function that will set a particular setting globally.
-- Added `unset_flag` function to reset a setting to default.
-- Added `with_flag` context manager to temporarily set a setting.
-
-### Fixes
-
-- Fixes dynamic requirements being registered in other parts of the load function (e.g. when loading a dependency).
-- Fixes groups reloading entirely when loading individual elements.
-- Fixes copying of requirements when copying a Plugin.
+- Upgrade to support Python 3.13
 
 ## Contributing
 Want a new feature, found a bug, or have questions? Feel free to add to our issue board on Github:
-[Open Issues](https://github.com/pyplugin/pyplugin/issues>)
+[Open Issues](https://github.com/pyplugin/pyplugin/issues)
 
 We welcome any developer who enjoys the package enough to contribute. 
 If you want to be added as a contributor and check out the 
@@ -56,16 +46,6 @@ This allows consumers of applications to easily swap or add plugins while guaran
 contracts.
 
 ## Install
-The package is currently **not available** on pypi pending a [PEP 541 request](https://github.com/pypi/support/issues/3063>).
-
-The package can be configured as a Github dependency in a `requirements.txt`
-
 ```
-pyplugin @ git+https://github.com/pyplugin/pyplugin@main
-```
-
-or to pin to a tag
-
-```
-pyplugin @ git+https://github.com/pyplugin/pyplugin@v0.1
+pip install pyplugin
 ```
