@@ -30,13 +30,5 @@ jobs:
         cache: "pip"
     - name: Installing requirements
       run: pip install ".[dev]"
-    - name: Cache hypothesis database
-      uses: actions/cache@v4
-      with:
-        path: .hypothesis/examples
-        key: hypothesis-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('tests/**/*.py') }}
-        restore-keys: |
-          hypothesis-${{ runner.os }}-py${{ matrix.python-version }}-
-          hypothesis-${{ runner.os }}-
     - name: Run tests with pytest
       run: python -m pytest -s tests/
